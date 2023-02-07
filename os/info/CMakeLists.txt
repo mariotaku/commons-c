@@ -1,0 +1,10 @@
+add_library(commons-os-info os_info.c)
+target_include_directories(commons-os-info PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(commons-os-info PUBLIC commons-version-info)
+
+if (TARGET commons-luna-sync)
+    target_sources(commons-os-info PRIVATE os_info_webos.c)
+    target_link_libraries(commons-os-info PUBLIC commons-luna-sync)
+else ()
+    target_sources(commons-os-info PRIVATE os_info_linux.c)
+endif ()
