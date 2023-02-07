@@ -1,4 +1,4 @@
-#include "util/version_info.h"
+#include "version_info.h"
 
 #include <assert.h>
 
