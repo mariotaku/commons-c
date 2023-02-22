@@ -52,7 +52,7 @@ void modules_clear(array_list_t *list) {
     for (int i = array_list_size(list) - 1; i >= 0; --i) {
         module_info_clear(array_list_get(list, i));
     }
-    array_list_destroy(list);
+    array_list_deinit(list);
 }
 
 bool module_conflicts(const module_info_t *a, const module_info_t *b) {
