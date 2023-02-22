@@ -31,9 +31,19 @@ typedef struct module_selection_t {
     const char *video;
 } module_selection_t;
 
+/**
+ * Load modules info into the list pointer
+ * @param list Array list pointer to load into
+ * @param os_info Runtime system information
+ * @return 0 if succeeded
+ */
 int modules_load(array_list_t *list, const os_info_t *os_info);
 
-void modules_destroy(array_list_t *list);
+/**
+ * This DOES NOT free the list pointer itself.
+ * @param list Modules list to clear all the content
+ */
+void modules_clear(array_list_t *list);
 
 bool module_conflicts(const module_info_t *a, const module_info_t *b);
 

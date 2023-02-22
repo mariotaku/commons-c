@@ -48,7 +48,7 @@ int modules_load(array_list_t *list, const os_info_t *os_info) {
     return 0;
 }
 
-void modules_destroy(array_list_t *list) {
+void modules_clear(array_list_t *list) {
     for (int i = array_list_size(list) - 1; i >= 0; --i) {
         module_info_clear(array_list_get(list, i));
     }

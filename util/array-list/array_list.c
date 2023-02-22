@@ -28,7 +28,6 @@ void array_list_deinit(array_list_t *list) {
 
 void array_list_destroy(array_list_t *list) {
     array_list_deinit(list);
-    free(list);
 }
 
 void *array_list_get(array_list_t *list, int index) {

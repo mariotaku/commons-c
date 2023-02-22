@@ -5,7 +5,7 @@
 struct HContextSync {
     union {
         HContext ctx;
-        unsigned char placeholder[128];
+        __attribute__((unused)) unsigned char placeholder[128];
     } base;
     GMutex mutex;
     GCond cond;
@@ -16,30 +16,29 @@ struct HContextSync {
 static bool callback(LSHandle *sh, LSMessage *reply, void *ctx);
 
 bool HLunaServiceCallSync(const char *uri, const char *payload, bool public, char **output) {
-    struct HContextSync *context = calloc(1, sizeof(struct HContextSync));
+    struct HContextSync context = {.base.ctx = {
+            .multiple = 0,
+            .public = public ? 1 : 0,
+            .callback = callback,
+    }};
 
-    context->base.ctx.multiple = 0;
-    context->base.ctx.public = public ? 1 : 0;
-    context->base.ctx.callback = callback;
-    g_mutex_init(&context->mutex);
-    g_cond_init(&context->cond);
-    context->output = output;
+    g_mutex_init(&context.mutex);
+    g_cond_init(&context.cond);
+    context.output = output;
 
-    if (HLunaServiceCall(uri, payload, &context->base.ctx) != 0) {
-        g_mutex_clear(&context->mutex);
-        g_cond_clear(&context->cond);
+    if (HLunaServiceCall(uri, payload, &context.base.ctx) != 0) {
+        g_mutex_clear(&context.mutex);
+        g_cond_clear(&context.cond);
         return false;
     }
-    g_mutex_lock(&context->mutex);
-    while (!context->finished) {
-        g_cond_wait(&context->cond, &context->mutex);
+    g_mutex_lock(&context.mutex);
+    while (!context.finished) {
+        g_cond_wait(&context.cond, &context.mutex);
     }
-    g_mutex_unlock(&context->mutex);
+    g_mutex_unlock(&context.mutex);
 
-    g_mutex_clear(&context->mutex);
-    g_cond_clear(&context->cond);
-
-    free(context);
+    g_mutex_clear(&context.mutex);
+    g_cond_clear(&context.cond);
     return true;
 }
 
