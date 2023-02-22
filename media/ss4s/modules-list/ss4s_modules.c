@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "ini.h"
 #include "array_list.h"
@@ -34,18 +35,17 @@ static int str_list_singleton(str_list_t *list, const char *value);
 
 static void str_list_clear(str_list_t *list);
 
-array_list_t *modules_load(const os_info_t *os_info) {
-    array_list_t *list = array_list_create(sizeof(module_info_t), 16);
+int modules_load(array_list_t *list, const os_info_t *os_info) {
+    array_list_init(list, sizeof(module_info_t), 16);
     FILE *f = fopen(SS4S_MODULES_INI_PATH, "r");
-    if (f != NULL) {
-        modules_parse_context mpc = {.modules = list, .os_info = os_info};
-        module_info_clear(&mpc.current);
-        ini_parse_file(f, modules_ini_handler, &mpc);
-        section_changed(&mpc);
-        modules_parse_context_destroy(&mpc);
-        array_list_qsort(list, module_weight_compare_fn);
-    }
-    return list;
+    if (f == NULL) return errno;
+    modules_parse_context mpc = {.modules = list, .os_info = os_info};
+    module_info_clear(&mpc.current);
+    ini_parse_file(f, modules_ini_handler, &mpc);
+    section_changed(&mpc);
+    modules_parse_context_destroy(&mpc);
+    array_list_qsort(list, module_weight_compare_fn);
+    return 0;
 }
 
 void modules_destroy(array_list_t *list) {
@@ -77,6 +77,38 @@ const char *module_first_available(const module_info_t *info, SS4S_ModuleCheckFl
         }
     }
     return NULL;
+}
+
+bool module_select(const array_list_t *list, module_selection_t *selection) {
+    const module_info_t *selected_video_module = NULL, *selected_audio_module = NULL;
+    const char *selected_video_driver = NULL, *selected_audio_driver = NULL;
+    for (int i = 0, j = array_list_size(list); i < j; ++i) {
+        const module_info_t *info = array_list_get((array_list_t *) list, i);
+        if (info->has_video && selected_video_driver == NULL) {
+            if (selected_audio_module != NULL && module_conflicts(selected_audio_module, info)) {
+                continue;
+            }
+            selected_video_driver = module_first_available(info, SS4S_MODULE_CHECK_VIDEO);
+            if (selected_video_driver != NULL) {
+                selected_video_module = info;
+            }
+        }
+        if (info->has_audio && selected_audio_driver == NULL) {
+            if (selected_video_module != NULL && module_conflicts(selected_video_module, info)) {
+                continue;
+            }
+            selected_audio_driver = module_first_available(info, SS4S_MODULE_CHECK_AUDIO);
+            if (selected_audio_driver != NULL) {
+                selected_audio_module = info;
+            }
+        }
+    }
+    if (selected_audio_driver == NULL && selected_video_driver == NULL) {
+        return false;
+    }
+    selection->audio = selected_audio_driver;
+    selection->video = selected_video_driver;
+    return true;
 }
 
 static int modules_ini_handler(void *user, const char *section, const char *name, const char *value) {

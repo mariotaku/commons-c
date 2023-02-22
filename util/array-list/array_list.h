@@ -2,11 +2,20 @@
 
 #include <stddef.h>
 
-typedef struct array_list_t array_list_t;
+typedef struct array_list_t {
+    void *data;
+    size_t item_size;
+    int capacity;
+    int size;
+} array_list_t;
 
 typedef int (*array_list_compare_fn)(const void *a, const void *b);
 
 array_list_t *array_list_create(size_t item_size, int initial_capacity);
+
+void array_list_init(array_list_t *list, size_t item_size, int initial_capacity);
+
+void array_list_deinit(array_list_t *list);
 
 void array_list_destroy(array_list_t *list);
 

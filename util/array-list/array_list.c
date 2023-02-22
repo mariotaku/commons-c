@@ -3,13 +3,6 @@
 #include <memory.h>
 #include <stdlib.h>
 
-struct array_list_t {
-    void *data;
-    size_t item_size;
-    int capacity;
-    int size;
-};
-
 static void ensure_capacity(array_list_t *list, int new_size);
 
 static inline void *item_at(array_list_t *list, int index);
@@ -18,15 +11,23 @@ static inline size_t items_offset(array_list_t *list, int size);
 
 array_list_t *array_list_create(size_t item_size, int initial_capacity) {
     array_list_t *list = calloc(1, sizeof(array_list_t));
+    array_list_init(list, item_size, initial_capacity);
+    return list;
+}
+
+void array_list_init(array_list_t *list, size_t item_size, int initial_capacity) {
     list->data = malloc(initial_capacity * item_size);
     list->item_size = item_size;
     list->capacity = initial_capacity;
     list->size = 0;
-    return list;
+}
+
+void array_list_deinit(array_list_t *list) {
+    free(list->data);
 }
 
 void array_list_destroy(array_list_t *list) {
-    free(list->data);
+    array_list_deinit(list);
     free(list);
 }
 
@@ -42,7 +43,8 @@ void *array_list_add(array_list_t *list, int insert_before) {
         list->size += 1;
         return item_at(list, list->size - 1);
     } else {
-        memmove(item_at(list, insert_before + 1), item_at(list, insert_before), items_offset(list, list->size - insert_before));
+        memmove(item_at(list, insert_before + 1), item_at(list, insert_before),
+                items_offset(list, list->size - insert_before));
         list->size += 1;
         return item_at(list, insert_before);
     }

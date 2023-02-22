@@ -26,10 +26,17 @@ typedef struct module_info_t {
     version_constraint_t os_version;
 } module_info_t;
 
-array_list_t *modules_load(const os_info_t *os_info);
+typedef struct module_selection_t {
+    const char *audio;
+    const char *video;
+} module_selection_t;
+
+int modules_load(array_list_t *list, const os_info_t *os_info);
 
 void modules_destroy(array_list_t *list);
 
 bool module_conflicts(const module_info_t *a, const module_info_t *b);
 
 const char *module_first_available(const module_info_t *info, SS4S_ModuleCheckFlag flags);
+
+bool module_select(const array_list_t *list, module_selection_t * selection);
