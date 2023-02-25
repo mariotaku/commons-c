@@ -1,8 +1,7 @@
-#include "cec_support.h"
+#include "cec_sdl.h"
 
 #include <stdio.h>
 
-#include <SDL.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -10,29 +9,26 @@
 
 #include "cec_key.h"
 
-struct cec_support_t {
-    SDL_mutex *lock;
-    SDL_cond *cond;
-    SDL_mutex *cond_lock;
-    SDL_Thread *thread;
-    void *cec_iface;
-
-    bool quit;
-};
-
 static int cec_thread_worker(void *arg);
 
-static void reopen_first(cec_support_ctx_t *ctx);
+static inline bool cec_interrupted(cec_sdl_ctx_t *ctx);
+
+static void reopen_first(cec_sdl_ctx_t *ctx);
 
 static void cb_alert(void *cbparam, libcec_alert alert, libcec_parameter param);
 
 static ICECCallbacks cec_callbacks = {
         .alert = cb_alert,
-        .keyPress = cec_support_cb_key,
+        .keyPress = cec_sdl_cb_key,
 };
 
-cec_support_ctx_t *cec_support_create() {
-    cec_support_ctx_t *ctx = calloc(1, sizeof(cec_support_ctx_t));
+cec_sdl_ctx_t *cec_sdl_create() {
+    cec_sdl_ctx_t *ctx = calloc(1, sizeof(cec_sdl_ctx_t));
+    cec_sdl_init(ctx);
+    return ctx;
+}
+
+void cec_sdl_init(cec_sdl_ctx_t *ctx) {
     ctx->lock = SDL_CreateMutex();
     SDL_LockMutex(ctx->lock);
     ctx->cond = SDL_CreateCond();
@@ -40,10 +36,9 @@ cec_support_ctx_t *cec_support_create() {
     ctx->cec_iface = calloc(1, sizeof(libcec_interface_t));
     ctx->thread = SDL_CreateThread(cec_thread_worker, "cec-worker", ctx);
     SDL_UnlockMutex(ctx->lock);
-    return ctx;
 }
 
-void cec_support_destroy(cec_support_ctx_t *ctx) {
+void cec_sdl_deinit(cec_sdl_ctx_t *ctx) {
     SDL_LockMutex(ctx->lock);
     ctx->quit = true;
     SDL_CondSignal(ctx->cond);
@@ -55,11 +50,16 @@ void cec_support_destroy(cec_support_ctx_t *ctx) {
     SDL_DestroyCond(ctx->cond);
     SDL_DestroyMutex(ctx->lock);
     free(ctx->cec_iface);
+
+}
+
+void cec_sdl_destroy(cec_sdl_ctx_t *ctx) {
+    cec_sdl_deinit(ctx);
     free(ctx);
 }
 
 static int cec_thread_worker(void *arg) {
-    cec_support_ctx_t *ctx = arg;
+    cec_sdl_ctx_t *ctx = arg;
     libcec_configuration cec_conf;
     libcecc_reset_configuration(&cec_conf);
     cec_conf.clientVersion = LIBCEC_VERSION_CURRENT;
@@ -76,7 +76,7 @@ static int cec_thread_worker(void *arg) {
     SDL_LogInfo(SDL_LOG_CATEGORY_INPUT, "libcecc initialized");
     reopen_first(ctx);
     SDL_LockMutex(ctx->cond_lock);
-    while (!ctx->quit) {
+    while (!cec_interrupted(ctx)) {
         SDL_CondWait(ctx->cond, ctx->cond_lock);
     }
     SDL_UnlockMutex(ctx->cond_lock);
@@ -85,11 +85,15 @@ static int cec_thread_worker(void *arg) {
     return 0;
 }
 
+static inline bool cec_interrupted(cec_sdl_ctx_t *ctx) {
+    return ctx->quit;
+}
+
 static void cb_alert(void *cbparam, const libcec_alert alert, const libcec_parameter param) {
 
 }
 
-static void reopen_first(cec_support_ctx_t *ctx) {
+static void reopen_first(cec_sdl_ctx_t *ctx) {
     cec_adapter devices[8];
     libcec_interface_t *iface = ctx->cec_iface;
     uint8_t devices_found = iface->find_adapters(iface->connection, devices, 8, NULL);

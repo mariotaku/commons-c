@@ -1,15 +1,23 @@
 #include "cec_key.h"
 
-#include "cec_support.h"
+#include "cec_sdl.h"
 
 #include <SDL_events.h>
 #include <SDL_timer.h>
 
 static SDL_KeyCode key_from_cec(cec_user_control_code code);
 
-void cec_support_cb_key(void *cbparam, const cec_keypress *keypress) {
-    cec_support_ctx_t *support = cbparam;
-    (void) support;
+void cec_sdl_cb_key(void *cbparam, const cec_keypress *keypress) {
+    cec_sdl_ctx_t *support = cbparam;
+    SDL_Window *focused = SDL_GetKeyboardFocus();
+    Uint32 window_id;
+    if (focused != NULL) {
+        window_id = SDL_GetWindowID(focused);
+    } else if (support->enable_unfocused) {
+        window_id = 0;
+    } else {
+        return;
+    }
     SDL_KeyCode key_code = key_from_cec(keypress->keycode);
     if (key_code == 0) {
         return;
@@ -17,7 +25,7 @@ void cec_support_cb_key(void *cbparam, const cec_keypress *keypress) {
     SDL_KeyboardEvent key_event = {
             .type = keypress->duration == 0 ? SDL_KEYDOWN : SDL_KEYUP,
             .timestamp = SDL_GetTicks(),
-            .windowID = 0,
+            .windowID = window_id,
             .state = keypress->duration == 0 ? SDL_PRESSED : SDL_RELEASED,
             .repeat = 0,
             .keysym = {

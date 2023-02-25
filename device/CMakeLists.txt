@@ -1,1 +1,1 @@
-add_subdirectory(cec)
+add_subdirectory(cec-sdl)
