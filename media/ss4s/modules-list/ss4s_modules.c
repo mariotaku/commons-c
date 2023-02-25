@@ -12,12 +12,12 @@
 #endif
 
 typedef struct modules_parse_context {
-    module_info_t current;
+    module_group_t current;
     const os_info_t *os_info;
     array_list_t *modules;
 } modules_parse_context;
 
-static void module_info_clear(module_info_t *info);
+static void module_info_clear(module_group_t *info);
 
 static void section_changed(modules_parse_context *context);
 
@@ -36,7 +36,7 @@ static int str_list_singleton(str_list_t *list, const char *value);
 static void str_list_clear(str_list_t *list);
 
 int modules_load(array_list_t *list, const os_info_t *os_info) {
-    array_list_init(list, sizeof(module_info_t), 16);
+    array_list_init(list, sizeof(module_group_t), 16);
     FILE *f = fopen(SS4S_MODULES_INI_PATH, "r");
     if (f == NULL) return errno;
     modules_parse_context mpc = {.modules = list, .os_info = os_info};
@@ -55,21 +55,21 @@ void modules_clear(array_list_t *list) {
     array_list_deinit(list);
 }
 
-bool module_conflicts(const module_info_t *a, const module_info_t *b) {
+bool module_conflicts(const module_group_t *a, const module_group_t *b) {
     for (int i = 0; i < a->conflicts.count; i++) {
-        if (strcmp(a->conflicts.elements[i], b->section) == 0) {
+        if (strcmp(a->conflicts.elements[i], b->id) == 0) {
             return true;
         }
     }
     for (int i = 0; i < b->conflicts.count; i++) {
-        if (strcmp(b->conflicts.elements[i], a->section) == 0) {
+        if (strcmp(b->conflicts.elements[i], a->id) == 0) {
             return true;
         }
     }
     return false;
 }
 
-const char *module_first_available(const module_info_t *info, SS4S_ModuleCheckFlag flags) {
+const char *module_first_available(const module_group_t *info, SS4S_ModuleCheckFlag flags) {
     for (int i = 0; i < info->modules.count; ++i) {
         const char *module = info->modules.elements[i];
         if (SS4S_ModuleAvailable(module, flags)) {
@@ -80,10 +80,10 @@ const char *module_first_available(const module_info_t *info, SS4S_ModuleCheckFl
 }
 
 bool module_select(const array_list_t *list, module_selection_t *selection) {
-    const module_info_t *selected_video_module = NULL, *selected_audio_module = NULL;
+    const module_group_t *selected_video_module = NULL, *selected_audio_module = NULL;
     const char *selected_video_driver = NULL, *selected_audio_driver = NULL;
     for (int i = 0, j = array_list_size(list); i < j; ++i) {
-        const module_info_t *info = array_list_get((array_list_t *) list, i);
+        const module_group_t *info = array_list_get((array_list_t *) list, i);
         if (info->has_video && selected_video_driver == NULL) {
             if (selected_audio_module != NULL && module_conflicts(selected_audio_module, info)) {
                 continue;
@@ -106,18 +106,20 @@ bool module_select(const array_list_t *list, module_selection_t *selection) {
     if (selected_audio_driver == NULL && selected_video_driver == NULL) {
         return false;
     }
-    selection->audio = selected_audio_driver;
-    selection->video = selected_video_driver;
+    selection->audio_driver = selected_audio_driver;
+    selection->audio_module = selected_audio_module;
+    selection->video_driver = selected_video_driver;
+    selection->video_module = selected_video_module;
     return true;
 }
 
 static int modules_ini_handler(void *user, const char *section, const char *name, const char *value) {
     modules_parse_context *mpc = user;
     // Only check for same pointer, ignoring content
-    if (((section != NULL) != (mpc->current.section != NULL)) ||
-        (section != NULL && strcmp(section, mpc->current.section) != 0)) {
+    if (((section != NULL) != (mpc->current.id != NULL)) ||
+        (section != NULL && strcmp(section, mpc->current.id) != 0)) {
         section_changed(mpc);
-        mpc->current.section = strdup(section);
+        mpc->current.id = strdup(section);
     }
     if (strcmp("name", name) == 0) {
         mpc->current.name = strdup(value);
@@ -145,7 +147,7 @@ static int modules_ini_handler(void *user, const char *section, const char *name
 }
 
 static void section_changed(modules_parse_context *context) {
-    if (context->current.section == NULL) {
+    if (context->current.id == NULL) {
         return;
     }
     if (!version_constraint_check(&context->current.os_version, &context->os_info->version)) {
@@ -153,9 +155,9 @@ static void section_changed(modules_parse_context *context) {
         return;
     }
     if (context->current.modules.elements == NULL) {
-        str_list_singleton(&context->current.modules, context->current.section);
+        str_list_singleton(&context->current.modules, context->current.id);
     }
-    module_info_t *info = array_list_add(context->modules, -1);
+    module_group_t *info = array_list_add(context->modules, -1);
     *info = context->current;
     memset(&context->current, 0, sizeof(context->current));
 }
@@ -163,12 +165,12 @@ static void section_changed(modules_parse_context *context) {
 static void modules_parse_context_destroy(modules_parse_context *context) {
 }
 
-static void module_info_clear(module_info_t *info) {
-    if (info->section == NULL) {
+static void module_info_clear(module_group_t *info) {
+    if (info->id == NULL) {
         return;
     }
     info->os_version.operand = VERSION_IGNORE;
-    free(info->section);
+    free(info->id);
     if (info->name != NULL) {
         free(info->name);
     }
@@ -177,7 +179,7 @@ static void module_info_clear(module_info_t *info) {
 }
 
 static int module_weight_compare_fn(const void *a, const void *b) {
-    const module_info_t *m1 = a, *m2 = b;
+    const module_group_t *m1 = a, *m2 = b;
     int weight_diff = m2->weight - m1->weight;
     return weight_diff;
 }
