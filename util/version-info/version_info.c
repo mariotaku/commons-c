@@ -33,7 +33,7 @@ bool version_info_valid(const version_info_t *version) {
     return version->major >= 0;
 }
 
-char *version_info_str(version_info_t *version) {
+char *version_info_str(const version_info_t *version) {
     if (version->major < 0) {
         return NULL;
     }

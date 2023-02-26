@@ -1,14 +1,15 @@
 #include "lunasynccall.h"
 
 #include <libhelpers.h>
+#include <pthread.h>
 
 struct HContextSync {
     union {
         HContext ctx;
         __attribute__((unused)) unsigned char placeholder[128];
     } base;
-    GMutex mutex;
-    GCond cond;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
     bool finished;
     char **output;
 };
@@ -22,23 +23,23 @@ bool HLunaServiceCallSync(const char *uri, const char *payload, bool public, cha
             .callback = callback,
     }};
 
-    g_mutex_init(&context.mutex);
-    g_cond_init(&context.cond);
+    pthread_mutex_init(&context.mutex, NULL);
+    pthread_cond_init(&context.cond, NULL);
     context.output = output;
 
     if (HLunaServiceCall(uri, payload, &context.base.ctx) != 0) {
-        g_mutex_clear(&context.mutex);
-        g_cond_clear(&context.cond);
+        pthread_mutex_destroy(&context.mutex);
+        pthread_cond_destroy(&context.cond);
         return false;
     }
-    g_mutex_lock(&context.mutex);
+    pthread_mutex_lock(&context.mutex);
     while (!context.finished) {
-        g_cond_wait(&context.cond, &context.mutex);
+        pthread_cond_wait(&context.cond, &context.mutex);
     }
-    g_mutex_unlock(&context.mutex);
+    pthread_mutex_unlock(&context.mutex);
 
-    g_mutex_clear(&context.mutex);
-    g_cond_clear(&context.cond);
+    pthread_mutex_destroy(&context.mutex);
+    pthread_cond_destroy(&context.cond);
     return true;
 }
 
@@ -47,8 +48,8 @@ static bool callback(LSHandle *sh, LSMessage *reply, void *ctx) {
     struct HContextSync *context = (struct HContextSync *) ctx;
     context->finished = true;
     if (context->output) {
-        *context->output = g_strdup(HLunaServiceMessage(reply));
+        *context->output = strdup(HLunaServiceMessage(reply));
     }
-    g_cond_signal(&context->cond);
+    pthread_cond_signal(&context->cond);
     return true;
 }

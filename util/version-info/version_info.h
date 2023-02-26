@@ -26,7 +26,7 @@ int version_info_parse(version_info_t *version, const char *value);
 
 bool version_info_valid(const version_info_t *version);
 
-char *version_info_str(version_info_t *version);
+char *version_info_str(const version_info_t *version);
 
 int version_info_compare(const version_info_t *a, const version_info_t *b);
 
