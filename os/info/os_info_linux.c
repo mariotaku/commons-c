@@ -13,7 +13,7 @@ int os_info_get(os_info_t *info) {
     if (fp != NULL && fgets(name, sizeof(name), fp) != NULL) {
         info->name = strndup(name, strlen_trim(name));
     } else {
-        info->name = "Linux";
+        info->name = strdup("Linux");
     }
     if (fp != NULL) {
         pclose(fp);
