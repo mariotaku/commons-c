@@ -46,10 +46,12 @@ bool HLunaServiceCallSync(const char *uri, const char *payload, bool public, cha
 static bool callback(LSHandle *sh, LSMessage *reply, void *ctx) {
     (void) sh;
     struct HContextSync *context = (struct HContextSync *) ctx;
+    pthread_mutex_lock(&context->mutex);
     context->finished = true;
     if (context->output) {
         *context->output = strdup(HLunaServiceMessage(reply));
     }
     pthread_cond_signal(&context->cond);
+    pthread_mutex_unlock(&context->mutex);
     return true;
 }
