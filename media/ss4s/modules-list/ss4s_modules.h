@@ -26,6 +26,11 @@ typedef struct module_group_t {
     version_constraint_t os_version;
 } module_group_t;
 
+typedef struct module_preferences_t {
+    const char *audio_module;
+    const char *video_module;
+} module_preferences_t;
+
 typedef struct module_selection_t {
     const char *audio_driver;
     const module_group_t *audio_module;
@@ -51,4 +56,4 @@ bool module_conflicts(const module_group_t *a, const module_group_t *b);
 
 const char *module_first_available(const module_group_t *info, SS4S_ModuleCheckFlag flags);
 
-bool module_select(const array_list_t *list, module_selection_t * selection);
+bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection);
