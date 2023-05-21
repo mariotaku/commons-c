@@ -61,5 +61,34 @@ int main() {
     assert(version_constraint_check(&constraint, &version));
     version_info_parse(&version, "4.9.9");
     assert(!version_constraint_check(&constraint, &version));
+    version_info_parse(&version, "5.0.1");
+    assert(!version_constraint_check(&constraint, &version));
+
+
+    assert(version_constraint_parse(&constraint, "<=5.9.9") == 0);
+    version_info_parse(&version, "6.0.0");
+    assert(!version_constraint_check(&constraint, &version));
+    version_info_parse(&version, "4.9.9");
+    assert(version_constraint_check(&constraint, &version));
+    version_info_parse(&version, "5.0.1");
+    assert(version_constraint_check(&constraint, &version));
+    version_info_parse(&version, "5.9.9");
+    assert(version_constraint_check(&constraint, &version));
+    version_info_parse(&version, "5.9.10");
+    assert(!version_constraint_check(&constraint, &version));
+
+    version_constraints_t constraints = {.count = 0};
+    assert(version_constraints_parse(&constraints, ">=3.5, <5") == 0);
+    version_info_parse(&version, "3.4.9");
+    assert(!version_constraints_check(&constraints, &version));
+    version_info_parse(&version, "4.9.9");
+    assert(version_constraints_check(&constraints, &version));
+    version_info_parse(&version, "5.0.1");
+    assert(!version_constraints_check(&constraints, &version));
+
+    version_constraints_clear(&constraints);
+
+    assert(version_constraints_parse(&constraints, ">=3.5,<<") != 0);
+    assert(version_constraints_parse(&constraints, ">=3.5,<<<") != 0);
     return 0;
 }

@@ -72,6 +72,10 @@ int version_info_compare(const version_info_t *a, const version_info_t *b) {
 }
 
 int version_constraint_parse(version_constraint_t *constraint, const char *value) {
+    // Skip spaces
+    while (*value == ' ') {
+        value++;
+    }
     const char *cur = value;
     // Find first occurrence of non-operand character
     while (1) {
@@ -84,11 +88,8 @@ int version_constraint_parse(version_constraint_t *constraint, const char *value
     }
     int op_len = cur - value;
     if (op_len > 2) {
-        // If 2 chars before cursor is not operand character, treat input as invalid
-        if (strchr(ALLOWED_OPERAND_CHARS, *(cur - 3)) == NULL) {
-            return -1;
-        }
-        op_len = 2;
+        // If operand is too long, stop processing
+        return -1;
     }
     switch (op_len) {
         case 2: {
@@ -146,4 +147,43 @@ bool version_constraint_check(const version_constraint_t *constraint, const vers
         case VERSION_LESSER_EQUALS:
             return version_info_compare(version, &constraint->version) <= 0;
     }
+}
+
+int version_constraints_parse(version_constraints_t *constraints, const char *value) {
+    const char *cur = value;
+    size_t n_delim = 0;
+    while ((cur = strchr(cur, ',')) != NULL) {
+        n_delim++;
+        cur++;
+    }
+    size_t max_constraints = n_delim + 1;
+    constraints->elements = calloc(max_constraints, sizeof(version_constraint_t));
+    char *tmp = strdup(value);
+    char *rest = tmp;
+    int n_items = 0;
+    while ((cur = strtok_r(rest, ",", &rest)) != NULL) {
+        if (version_constraint_parse(&constraints->elements[n_items], cur) != 0) {
+            version_constraints_clear(constraints);
+            return -1;
+        }
+        n_items++;
+    }
+    constraints->count = n_items;
+    return 0;
+}
+
+bool version_constraints_check(const version_constraints_t *constraints, const version_info_t *version) {
+    for (int i = 0, j = constraints->count; i < j; ++i) {
+        if (!version_constraint_check(&constraints->elements[i], version)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void version_constraints_clear(version_constraints_t *constraints) {
+    if (constraints->elements != NULL) {
+        free(constraints->elements);
+    }
+    constraints->count = 0;
 }

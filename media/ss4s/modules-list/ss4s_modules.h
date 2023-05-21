@@ -14,17 +14,17 @@ typedef struct str_list_t {
     char *raw;
 } str_list_t;
 
-typedef struct module_group_t {
+typedef struct module_info_t {
     char *id;
+    char *group;
     char *name;
     bool has_audio;
     bool has_video;
     int weight;
-    str_list_t modules;
     str_list_t conflicts;
 
-    version_constraint_t os_version;
-} module_group_t;
+    version_constraints_t os_version;
+} module_info_t;
 
 typedef struct module_preferences_t {
     const char *audio_module;
@@ -32,10 +32,8 @@ typedef struct module_preferences_t {
 } module_preferences_t;
 
 typedef struct module_selection_t {
-    const char *audio_driver;
-    const module_group_t *audio_module;
-    const char *video_driver;
-    const module_group_t *video_module;
+    const module_info_t *audio_module;
+    const module_info_t *video_module;
 } module_selection_t;
 
 /**
@@ -52,8 +50,12 @@ int modules_load(array_list_t *list, const os_info_t *os_info);
  */
 void modules_clear(array_list_t *list);
 
-bool module_conflicts(const module_group_t *a, const module_group_t *b);
-
-const char *module_first_available(const module_group_t *info, SS4S_ModuleCheckFlag flags);
+bool module_conflicts(const module_info_t *a, const module_info_t *b);
 
 bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection);
+
+const char *module_info_get_id(const module_info_t *info);
+
+const char *module_info_get_name(const module_info_t *info);
+
+const char *module_info_get_group(const module_info_t *info);

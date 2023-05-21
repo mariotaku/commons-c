@@ -9,6 +9,7 @@ typedef struct version_info_t {
     int patch;
 } version_info_t;
 
+
 typedef struct version_constraint_t {
     version_info_t version;
     enum {
@@ -22,6 +23,11 @@ typedef struct version_constraint_t {
     } operand;
 } version_constraint_t;
 
+typedef struct version_constraints_t {
+    int count;
+    version_constraint_t *elements;
+} version_constraints_t;
+
 int version_info_parse(version_info_t *version, const char *value);
 
 bool version_info_valid(const version_info_t *version);
@@ -33,3 +39,9 @@ int version_info_compare(const version_info_t *a, const version_info_t *b);
 int version_constraint_parse(version_constraint_t *constraint, const char *value);
 
 bool version_constraint_check(const version_constraint_t *constraint, const version_info_t *version);
+
+int version_constraints_parse(version_constraints_t *constraints, const char *value);
+
+bool version_constraints_check(const version_constraints_t *constraints, const version_info_t *version);
+
+void version_constraints_clear(version_constraints_t *constraints);
