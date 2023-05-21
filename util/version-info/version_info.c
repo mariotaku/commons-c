@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include "version_info.h"
 
+#define ALLOWED_OPERAND_CHARS "<>="
+
 int version_info_parse(version_info_t *version, const char *value) {
     int n_segs = 0;
     int segs[3] = {-1, -1, -1};
@@ -71,8 +73,9 @@ int version_info_compare(const version_info_t *a, const version_info_t *b) {
 
 int version_constraint_parse(version_constraint_t *constraint, const char *value) {
     const char *cur = value;
+    // Find first occurrence of non-operand character
     while (1) {
-        const char *find = strpbrk(cur, "<>=");
+        const char *find = strpbrk(cur, ALLOWED_OPERAND_CHARS);
         if (find != NULL) {
             cur = find + 1;
         } else {
@@ -81,7 +84,8 @@ int version_constraint_parse(version_constraint_t *constraint, const char *value
     }
     int op_len = cur - value;
     if (op_len > 2) {
-        if (strchr("<>=", *(cur - 3)) == NULL) {
+        // If 2 chars before cursor is not operand character, treat input as invalid
+        if (strchr(ALLOWED_OPERAND_CHARS, *(cur - 3)) == NULL) {
             return -1;
         }
         op_len = 2;
