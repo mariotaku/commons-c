@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -150,6 +151,9 @@ bool version_constraint_check(const version_constraint_t *constraint, const vers
 }
 
 int version_constraints_parse(version_constraints_t *constraints, const char *value) {
+    assert(constraints->count == 0);
+    assert(constraints->elements == NULL);
+
     const char *cur = value;
     size_t n_delim = 0;
     while ((cur = strchr(cur, ',')) != NULL) {
@@ -164,9 +168,14 @@ int version_constraints_parse(version_constraints_t *constraints, const char *va
     while ((cur = strtok_r(rest, ",", &rest)) != NULL) {
         if (version_constraint_parse(&constraints->elements[n_items], cur) != 0) {
             version_constraints_clear(constraints);
-            return -1;
+            n_items = -1;
+            break;
         }
         n_items++;
+    }
+    free(tmp);
+    if (n_items < 0) {
+        return -1;
     }
     constraints->count = n_items;
     return 0;
@@ -185,5 +194,5 @@ void version_constraints_clear(version_constraints_t *constraints) {
     if (constraints->elements != NULL) {
         free(constraints->elements);
     }
-    constraints->count = 0;
+    memset(constraints, 0, sizeof(version_constraints_t));
 }

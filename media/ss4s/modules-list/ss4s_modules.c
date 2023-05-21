@@ -169,8 +169,7 @@ static int modules_ini_handler(void *user, const char *section, const char *name
         mpc->current.has_video = strcmp("true", value) == 0;
     } else if (strcmp("os_version", name) == 0) {
         version_constraints_parse(&mpc->current.os_version, value);
-    }
-    if (strcmp("conflicts", name) == 0) {
+    } else if (strcmp("conflicts", name) == 0) {
         str_list_parse(&mpc->current.conflicts, value, ",");
     }
     return 1;
@@ -206,6 +205,7 @@ static void module_info_clear(module_info_t *info) {
     }
     str_list_clear(&info->conflicts);
     version_constraints_clear(&info->os_version);
+    memset(info, 0, sizeof(module_info_t));
 }
 
 static int module_weight_compare_fn(const void *a, const void *b) {
