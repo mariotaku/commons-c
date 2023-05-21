@@ -29,7 +29,7 @@ void cec_sdl_cb_key(void *cbparam, const cec_keypress *keypress) {
             .state = keypress->duration == 0 ? SDL_PRESSED : SDL_RELEASED,
             .repeat = 0,
             .keysym = {
-                    .scancode = 0,
+                    .scancode = SDL_GetScancodeFromKey(key_code),
                     .sym = key_code,
             }
     };
