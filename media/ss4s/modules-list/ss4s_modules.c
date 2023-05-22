@@ -35,6 +35,8 @@ static int str_list_parse(str_list_t *list, const char *value, const char *delim
 
 static void str_list_clear(str_list_t *list);
 
+static bool preference_auto(const char *value);
+
 int modules_load(array_list_t *list, const os_info_t *os_info) {
     array_list_init(list, sizeof(module_info_t), 16);
     FILE *f = fopen(SS4S_MODULES_INI_PATH, "r");
@@ -71,11 +73,20 @@ bool module_conflicts(const module_info_t *a, const module_info_t *b) {
 
 bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection) {
     const module_info_t *selected_video_module = NULL, *selected_audio_module = NULL;
-
-    if (preferences != NULL && preferences->video_module != NULL) {
+    if (preferences != NULL && !preference_auto(preferences->video_module)) {
         const module_info_t *selected = module_by_id(list, preferences->video_module);
-        if (selected != NULL && selected->has_video && SS4S_ModuleAvailable(selected->id, SS4S_MODULE_CHECK_VIDEO)) {
-            selected_video_module = selected;
+        if (selected != NULL && selected->has_video) {
+            SS4S_ModuleCheckFlag flags = SS4S_MODULE_CHECK_VIDEO;
+            bool set_audio = selected->has_audio && preference_auto(preferences->audio_module);
+            if (set_audio) {
+                flags = SS4S_MODULE_CHECK_AUDIO;
+            }
+            if (SS4S_ModuleAvailable(selected->id, flags)) {
+                selected_video_module = selected;
+                if (set_audio) {
+                    selected_audio_module = selected;
+                }
+            }
         }
     }
     if (selected_video_module == NULL) {
@@ -84,8 +95,16 @@ bool module_select(const array_list_t *list, const module_preferences_t *prefere
             if (!info->has_video) {
                 continue;
             }
-            if (SS4S_ModuleAvailable(info->id, SS4S_MODULE_CHECK_VIDEO)) {
+            SS4S_ModuleCheckFlag flags = SS4S_MODULE_CHECK_VIDEO;
+            bool set_audio = info->has_audio && preferences == NULL || preference_auto(preferences->audio_module);
+            if (set_audio) {
+                flags = SS4S_MODULE_CHECK_AUDIO;
+            }
+            if (SS4S_ModuleAvailable(info->id, flags)) {
                 selected_video_module = info;
+                if (set_audio) {
+                    selected_audio_module = info;
+                }
                 break;
             }
         }
@@ -93,7 +112,7 @@ bool module_select(const array_list_t *list, const module_preferences_t *prefere
     if (selected_video_module == NULL) {
         return false;
     }
-    if (preferences != NULL && preferences->audio_module != NULL) {
+    if (preferences != NULL && !preference_auto(preferences->audio_module)) {
         const module_info_t *selected = module_by_id(list, preferences->audio_module);
         if (selected != NULL && selected->has_audio && !module_conflicts(selected_video_module, selected) &&
             SS4S_ModuleAvailable(selected->id, SS4S_MODULE_CHECK_AUDIO)) {
@@ -268,4 +287,8 @@ static void str_list_clear(str_list_t *list) {
         free(list->raw);
     }
     memset(list, 0, sizeof(str_list_t));
+}
+
+static bool preference_auto(const char *value) {
+    return value == NULL || strcmp(value, MODULE_PREFERENCE_AUTO) == 0;
 }

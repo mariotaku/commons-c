@@ -6,6 +6,8 @@
 #include "version_info.h"
 #include "ss4s/module.h"
 
+#define MODULE_PREFERENCE_AUTO "auto"
+
 typedef struct array_list_t array_list_t;
 
 typedef struct str_list_t {
