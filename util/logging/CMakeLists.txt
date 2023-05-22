@@ -9,7 +9,6 @@ else ()
     target_sources(commons-logging PRIVATE logging_stdio.c)
 endif ()
 
-message(COMMONS_LOGGING_SDL=${COMMONS_LOGGING_SDL})
 if (COMMONS_LOGGING_SDL)
     target_include_directories(commons-logging SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
     target_sources(commons-logging PRIVATE logging_ext_sdl.c)
