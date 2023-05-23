@@ -96,7 +96,7 @@ bool module_select(const array_list_t *list, const module_preferences_t *prefere
                 continue;
             }
             SS4S_ModuleCheckFlag flags = SS4S_MODULE_CHECK_VIDEO;
-            bool set_audio = info->has_audio && preferences == NULL || preference_auto(preferences->audio_module);
+            bool set_audio = info->has_audio && (preferences == NULL || preference_auto(preferences->audio_module));
             if (set_audio) {
                 flags = SS4S_MODULE_CHECK_AUDIO;
             }
