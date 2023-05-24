@@ -71,7 +71,8 @@ bool module_conflicts(const module_info_t *a, const module_info_t *b) {
     return false;
 }
 
-bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection) {
+bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection,
+                   bool check_module) {
     const module_info_t *selected_video_module = NULL, *selected_audio_module = NULL;
     if (preferences != NULL && !preference_auto(preferences->video_module)) {
         const module_info_t *selected = module_by_id(list, preferences->video_module);
@@ -81,7 +82,7 @@ bool module_select(const array_list_t *list, const module_preferences_t *prefere
             if (set_audio) {
                 flags = SS4S_MODULE_CHECK_AUDIO;
             }
-            if (SS4S_ModuleAvailable(selected->id, flags)) {
+            if (!check_module || SS4S_ModuleAvailable(selected->id, flags)) {
                 selected_video_module = selected;
                 if (set_audio) {
                     selected_audio_module = selected;
@@ -100,7 +101,7 @@ bool module_select(const array_list_t *list, const module_preferences_t *prefere
             if (set_audio) {
                 flags = SS4S_MODULE_CHECK_AUDIO;
             }
-            if (SS4S_ModuleAvailable(info->id, flags)) {
+            if (!check_module || SS4S_ModuleAvailable(info->id, flags)) {
                 selected_video_module = info;
                 if (set_audio) {
                     selected_audio_module = info;
@@ -114,18 +115,19 @@ bool module_select(const array_list_t *list, const module_preferences_t *prefere
     }
     if (preferences != NULL && !preference_auto(preferences->audio_module)) {
         const module_info_t *selected = module_by_id(list, preferences->audio_module);
-        if (selected != NULL && selected->has_audio && !module_conflicts(selected_video_module, selected) &&
-            SS4S_ModuleAvailable(selected->id, SS4S_MODULE_CHECK_AUDIO)) {
+        if (selected != NULL && selected->has_audio &&
+            (!check_module || !module_conflicts(selected_video_module, selected) &&
+                              SS4S_ModuleAvailable(selected->id, SS4S_MODULE_CHECK_AUDIO))) {
             selected_audio_module = selected;
         }
     }
     if (selected_audio_module == NULL) {
         for (int i = 0, j = array_list_size(list); i < j; ++i) {
             const module_info_t *info = array_list_get((array_list_t *) list, i);
-            if (!info->has_audio || module_conflicts(selected_video_module, info)) {
+            if (!info->has_audio || check_module && module_conflicts(selected_video_module, info)) {
                 continue;
             }
-            if (SS4S_ModuleAvailable(info->id, SS4S_MODULE_CHECK_AUDIO)) {
+            if (!check_module || SS4S_ModuleAvailable(info->id, SS4S_MODULE_CHECK_AUDIO)) {
                 selected_audio_module = info;
             }
         }

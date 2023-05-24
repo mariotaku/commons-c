@@ -54,7 +54,8 @@ void modules_clear(array_list_t *list);
 
 bool module_conflicts(const module_info_t *a, const module_info_t *b);
 
-bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection);
+bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection,
+                   bool check_module);
 
 const char *module_info_get_id(const module_info_t *info);
 
