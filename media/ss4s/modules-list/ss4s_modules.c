@@ -59,12 +59,14 @@ void modules_clear(array_list_t *list) {
 
 bool module_conflicts(const module_info_t *a, const module_info_t *b) {
     for (int i = 0; i < a->conflicts.count; i++) {
-        if (strcmp(a->conflicts.elements[i], b->id) == 0) {
+        const char *item = a->conflicts.elements[i];
+        if (strcmp(item, b->id) == 0 || (b->group != NULL && strcmp(item, b->group) == 0)) {
             return true;
         }
     }
     for (int i = 0; i < b->conflicts.count; i++) {
-        if (strcmp(b->conflicts.elements[i], a->id) == 0) {
+        const char *item = b->conflicts.elements[i];
+        if (strcmp(item, a->id) == 0 || (a->group != NULL && strcmp(item, a->group) == 0)) {
             return true;
         }
     }
