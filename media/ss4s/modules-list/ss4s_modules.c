@@ -12,12 +12,12 @@
 #endif
 
 typedef struct modules_parse_context {
-    module_info_t current;
+    SS4S_ModuleInfo current;
     const os_info_t *os_info;
     array_list_t *modules;
 } modules_parse_context;
 
-static void module_info_clear(module_info_t *info);
+static void module_info_clear(SS4S_ModuleInfo *info);
 
 static void section_changed(modules_parse_context *context);
 
@@ -27,7 +27,7 @@ static int modules_ini_handler(void *user, const char *section, const char *name
 
 static int module_weight_compare_fn(const void *a, const void *b);
 
-static const module_info_t *module_by_id(const array_list_t *list, const char *id);
+static const SS4S_ModuleInfo *module_by_id(const array_list_t *list, const char *id);
 
 /* Delimited string list */
 
@@ -37,27 +37,95 @@ static void str_list_clear(str_list_t *list);
 
 static bool preference_auto(const char *value);
 
-int modules_load(array_list_t *list, const os_info_t *os_info) {
-    array_list_init(list, sizeof(module_info_t), 16);
+int SS4S_ModulesList(array_list_t *modules, const os_info_t *os_info) {
+    array_list_init(modules, sizeof(SS4S_ModuleInfo), 16);
     FILE *f = fopen(SS4S_MODULES_INI_PATH, "r");
     if (f == NULL) return errno;
-    modules_parse_context mpc = {.modules = list, .os_info = os_info};
+    modules_parse_context mpc = {.modules = modules, .os_info = os_info};
     module_info_clear(&mpc.current);
     ini_parse_file(f, modules_ini_handler, &mpc);
     section_changed(&mpc);
     modules_parse_context_destroy(&mpc);
-    array_list_qsort(list, module_weight_compare_fn);
+    array_list_qsort(modules, module_weight_compare_fn);
     return 0;
 }
 
-void modules_clear(array_list_t *list) {
-    for (int i = array_list_size(list) - 1; i >= 0; --i) {
-        module_info_clear(array_list_get(list, i));
+void SS4S_ModulesListClear(array_list_t *modules) {
+    for (int i = array_list_size(modules) - 1; i >= 0; --i) {
+        module_info_clear(array_list_get(modules, i));
     }
-    array_list_deinit(list);
+    array_list_deinit(modules);
 }
 
-bool module_conflicts(const module_info_t *a, const module_info_t *b) {
+bool SS4S_ModulesSelect(const array_list_t *modules, const SS4S_ModulePreferences *preferences,
+                        SS4S_ModuleSelection *selection,
+                        bool checkModule) {
+    const SS4S_ModuleInfo *selected_video_module = NULL, *selected_audio_module = NULL;
+    if (preferences != NULL && !preference_auto(preferences->video_module)) {
+        const SS4S_ModuleInfo *selected = module_by_id(modules, preferences->video_module);
+        if (selected != NULL && selected->has_video) {
+            SS4S_ModuleCheckFlag flags = SS4S_MODULE_CHECK_VIDEO;
+            if (selected->has_audio && preference_auto(preferences->audio_module)) {
+                flags |= SS4S_MODULE_CHECK_AUDIO;
+            }
+            if (!checkModule || (flags = SS4S_ModuleCheck(selected->id, flags)) & SS4S_MODULE_CHECK_VIDEO) {
+                selected_video_module = selected;
+                if (flags & SS4S_MODULE_CHECK_AUDIO) {
+                    selected_audio_module = selected;
+                }
+            }
+        }
+    }
+    if (selected_video_module == NULL) {
+        for (int i = 0, j = array_list_size(modules); i < j; ++i) {
+            const SS4S_ModuleInfo *info = array_list_get((array_list_t *) modules, i);
+            if (!info->has_video) {
+                continue;
+            }
+            SS4S_ModuleCheckFlag flags = SS4S_MODULE_CHECK_VIDEO;
+            if (info->has_audio && (preferences == NULL || preference_auto(preferences->audio_module))) {
+                flags |= SS4S_MODULE_CHECK_AUDIO;
+            }
+            if (!checkModule || (flags = SS4S_ModuleCheck(info->id, flags)) & SS4S_MODULE_CHECK_VIDEO) {
+                selected_video_module = info;
+                if (flags & SS4S_MODULE_CHECK_AUDIO) {
+                    selected_audio_module = info;
+                }
+                break;
+            }
+        }
+    }
+    if (selected_video_module == NULL) {
+        return false;
+    }
+    if (preferences != NULL && !preference_auto(preferences->audio_module)) {
+        const SS4S_ModuleInfo *selected = module_by_id(modules, preferences->audio_module);
+        if (selected != NULL && selected->has_audio &&
+            (!checkModule || !SS4S_ModuleInfoConflicts(selected_video_module, selected) &&
+                             SS4S_ModuleCheck(selected->id, SS4S_MODULE_CHECK_AUDIO))) {
+            selected_audio_module = selected;
+        }
+    }
+    if (selected_audio_module == NULL) {
+        for (int i = 0, j = array_list_size(modules); i < j; ++i) {
+            const SS4S_ModuleInfo *info = array_list_get((array_list_t *) modules, i);
+            if (!info->has_audio || checkModule && SS4S_ModuleInfoConflicts(selected_video_module, info)) {
+                continue;
+            }
+            if (!checkModule || SS4S_ModuleCheck(info->id, SS4S_MODULE_CHECK_AUDIO)) {
+                selected_audio_module = info;
+            }
+        }
+    }
+    if (selected_audio_module == NULL) {
+        return false;
+    }
+    selection->audio_module = selected_audio_module;
+    selection->video_module = selected_video_module;
+    return true;
+}
+
+bool SS4S_ModuleInfoConflicts(const SS4S_ModuleInfo *a, const SS4S_ModuleInfo *b) {
     for (int i = 0; i < a->conflicts.count; i++) {
         const char *item = a->conflicts.elements[i];
         if (strcmp(item, b->id) == 0 || (b->group != NULL && strcmp(item, b->group) == 0)) {
@@ -73,90 +141,21 @@ bool module_conflicts(const module_info_t *a, const module_info_t *b) {
     return false;
 }
 
-bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection,
-                   bool check_module) {
-    const module_info_t *selected_video_module = NULL, *selected_audio_module = NULL;
-    if (preferences != NULL && !preference_auto(preferences->video_module)) {
-        const module_info_t *selected = module_by_id(list, preferences->video_module);
-        if (selected != NULL && selected->has_video) {
-            SS4S_ModuleCheckFlag flags = SS4S_MODULE_CHECK_VIDEO;
-            bool set_audio = selected->has_audio && preference_auto(preferences->audio_module);
-            if (set_audio) {
-                flags = SS4S_MODULE_CHECK_AUDIO;
-            }
-            if (!check_module || SS4S_ModuleAvailable(selected->id, flags)) {
-                selected_video_module = selected;
-                if (set_audio) {
-                    selected_audio_module = selected;
-                }
-            }
-        }
-    }
-    if (selected_video_module == NULL) {
-        for (int i = 0, j = array_list_size(list); i < j; ++i) {
-            const module_info_t *info = array_list_get((array_list_t *) list, i);
-            if (!info->has_video) {
-                continue;
-            }
-            SS4S_ModuleCheckFlag flags = SS4S_MODULE_CHECK_VIDEO;
-            bool set_audio = info->has_audio && (preferences == NULL || preference_auto(preferences->audio_module));
-            if (set_audio) {
-                flags = SS4S_MODULE_CHECK_AUDIO;
-            }
-            if (!check_module || SS4S_ModuleAvailable(info->id, flags)) {
-                selected_video_module = info;
-                if (set_audio) {
-                    selected_audio_module = info;
-                }
-                break;
-            }
-        }
-    }
-    if (selected_video_module == NULL) {
-        return false;
-    }
-    if (preferences != NULL && !preference_auto(preferences->audio_module)) {
-        const module_info_t *selected = module_by_id(list, preferences->audio_module);
-        if (selected != NULL && selected->has_audio &&
-            (!check_module || !module_conflicts(selected_video_module, selected) &&
-                              SS4S_ModuleAvailable(selected->id, SS4S_MODULE_CHECK_AUDIO))) {
-            selected_audio_module = selected;
-        }
-    }
-    if (selected_audio_module == NULL) {
-        for (int i = 0, j = array_list_size(list); i < j; ++i) {
-            const module_info_t *info = array_list_get((array_list_t *) list, i);
-            if (!info->has_audio || check_module && module_conflicts(selected_video_module, info)) {
-                continue;
-            }
-            if (!check_module || SS4S_ModuleAvailable(info->id, SS4S_MODULE_CHECK_AUDIO)) {
-                selected_audio_module = info;
-            }
-        }
-    }
-    if (selected_audio_module == NULL) {
-        return false;
-    }
-    selection->audio_module = selected_audio_module;
-    selection->video_module = selected_video_module;
-    return true;
-}
-
-const char *module_info_get_id(const module_info_t *info) {
+const char *SS4S_ModuleInfoGetId(const SS4S_ModuleInfo *info) {
     if (info == NULL) {
         return NULL;
     }
     return info->id;
 }
 
-const char *module_info_get_name(const module_info_t *info) {
+const char *SS4S_ModuleInfoGetName(const SS4S_ModuleInfo *info) {
     if (info == NULL) {
         return NULL;
     }
     return info->name;
 }
 
-const char *module_info_get_group(const module_info_t *info) {
+const char *SS4S_ModuleInfoGetGroup(const SS4S_ModuleInfo *info) {
     if (info == NULL) {
         return NULL;
     }
@@ -206,7 +205,7 @@ static void section_changed(modules_parse_context *context) {
         module_info_clear(&context->current);
         return;
     }
-    module_info_t *info = array_list_add(context->modules, -1);
+    SS4S_ModuleInfo *info = array_list_add(context->modules, -1);
     *info = context->current;
     memset(&context->current, 0, sizeof(context->current));
 }
@@ -215,7 +214,7 @@ static void modules_parse_context_destroy(modules_parse_context *context) {
     (void) context;
 }
 
-static void module_info_clear(module_info_t *info) {
+static void module_info_clear(SS4S_ModuleInfo *info) {
     if (info->id == NULL) {
         return;
     }
@@ -228,21 +227,21 @@ static void module_info_clear(module_info_t *info) {
     }
     str_list_clear(&info->conflicts);
     version_constraints_clear(&info->os_version);
-    memset(info, 0, sizeof(module_info_t));
+    memset(info, 0, sizeof(SS4S_ModuleInfo));
 }
 
 static int module_weight_compare_fn(const void *a, const void *b) {
-    const module_info_t *m1 = a, *m2 = b;
+    const SS4S_ModuleInfo *m1 = a, *m2 = b;
     int weight_diff = m2->weight - m1->weight;
     if (weight_diff == 0) {
-        return strcmp(module_info_get_group(m1), module_info_get_group(m2));
+        return strcmp(SS4S_ModuleInfoGetGroup(m1), SS4S_ModuleInfoGetGroup(m2));
     }
     return weight_diff;
 }
 
-static const module_info_t *module_by_id(const array_list_t *list, const char *id) {
+static const SS4S_ModuleInfo *module_by_id(const array_list_t *list, const char *id) {
     for (int i = 0, j = array_list_size(list); i < j; ++i) {
-        const module_info_t *info = array_list_get((array_list_t *) list, i);
+        const SS4S_ModuleInfo *info = array_list_get((array_list_t *) list, i);
         if (strcmp(id, info->id) == 0 || (info->group != NULL && strcmp(id, info->group) == 0)) {
             return info;
         }

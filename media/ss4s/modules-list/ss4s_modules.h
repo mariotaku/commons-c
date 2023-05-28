@@ -26,39 +26,39 @@ typedef struct module_info_t {
     str_list_t conflicts;
 
     version_constraints_t os_version;
-} module_info_t;
+} SS4S_ModuleInfo;
 
 typedef struct module_preferences_t {
     const char *audio_module;
     const char *video_module;
-} module_preferences_t;
+} SS4S_ModulePreferences;
 
 typedef struct module_selection_t {
-    const module_info_t *audio_module;
-    const module_info_t *video_module;
-} module_selection_t;
+    const SS4S_ModuleInfo *audio_module;
+    const SS4S_ModuleInfo *video_module;
+} SS4S_ModuleSelection;
 
 /**
- * Load modules info into the list pointer
- * @param list Array list pointer to load into
+ * Load modules info into the modules pointer
+ * @param modules Array modules pointer to load into
  * @param os_info Runtime system information
  * @return 0 if succeeded
  */
-int modules_load(array_list_t *list, const os_info_t *os_info);
+int SS4S_ModulesList(array_list_t *modules, const os_info_t *os_info);
 
 /**
- * This DOES NOT free the list pointer itself.
- * @param list Modules list to clear all the content
+ * This DOES NOT free the modules pointer itself.
+ * @param modules Modules modules to clear all the content
  */
-void modules_clear(array_list_t *list);
+void SS4S_ModulesListClear(array_list_t *modules);
 
-bool module_conflicts(const module_info_t *a, const module_info_t *b);
+bool SS4S_ModulesSelect(const array_list_t *modules, const SS4S_ModulePreferences *preferences,
+                        SS4S_ModuleSelection *selection, bool checkModule);
 
-bool module_select(const array_list_t *list, const module_preferences_t *preferences, module_selection_t *selection,
-                   bool check_module);
+bool SS4S_ModuleInfoConflicts(const SS4S_ModuleInfo *a, const SS4S_ModuleInfo *b);
 
-const char *module_info_get_id(const module_info_t *info);
+const char *SS4S_ModuleInfoGetId(const SS4S_ModuleInfo *info);
 
-const char *module_info_get_name(const module_info_t *info);
+const char *SS4S_ModuleInfoGetName(const SS4S_ModuleInfo *info);
 
-const char *module_info_get_group(const module_info_t *info);
+const char *SS4S_ModuleInfoGetGroup(const SS4S_ModuleInfo *info);
