@@ -1,7 +1,9 @@
 pkg_check_modules(LIBCEC libcec)
 
 if (NOT LIBCEC_FOUND)
-    message("libcec not found, disabling support")
+    list(APPEND CMAKE_MESSAGE_INDENT "  ")
+    message(STATUS "libcec not found, disabling support")
+    list(POP_BACK CMAKE_MESSAGE_INDENT)
     return()
 endif ()
 
