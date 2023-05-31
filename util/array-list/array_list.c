@@ -24,6 +24,7 @@ void array_list_init(array_list_t *list, size_t item_size, int initial_capacity)
 
 void array_list_deinit(array_list_t *list) {
     free(list->data);
+    memset(list, 0, sizeof(array_list_t));
 }
 
 void array_list_destroy(array_list_t *list) {
