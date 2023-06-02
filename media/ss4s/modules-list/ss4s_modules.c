@@ -113,6 +113,7 @@ bool SS4S_ModulesSelect(const array_list_t *modules, const SS4S_ModulePreference
             }
             if (!checkModule || SS4S_ModuleCheck(info->id, SS4S_MODULE_CHECK_AUDIO)) {
                 selected_audio_module = info;
+                break;
             }
         }
     }
