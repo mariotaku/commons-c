@@ -1,6 +1,6 @@
 #include <src/draw/sw/lv_draw_sw.h>
 #include <assert.h>
-#include <stdio.h>
+#include <unistd.h>
 #include "lvgl.h"
 
 #include "lv_gridview.h"
@@ -14,6 +14,8 @@ static int adapter_item_count(lv_obj_t *grid, void *data);
 static lv_obj_t *adapter_create_view(lv_obj_t *grid);
 
 static void adapter_bind_view(lv_obj_t *grid, lv_obj_t *item, void *data, int index);
+
+static void flush_cb(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p);
 
 static const lv_gridview_adapter_t adapter = {
         .item_count = adapter_item_count,
@@ -58,6 +60,10 @@ static void adapter_bind_view(lv_obj_t *grid, lv_obj_t *item, void *data, int in
     lv_label_set_text_fmt(item, "%d", index);
 }
 
+static void flush_cb(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p) {
+    lv_disp_flush_ready(disp_drv);
+}
+
 int main() {
     lv_init();
     lv_disp_draw_buf_t *draw_buf = lv_mem_alloc(sizeof(lv_disp_draw_buf_t));
@@ -71,6 +77,7 @@ int main() {
     lv_draw_sw_init_ctx(drv, draw_ctx);
     drv->draw_ctx = draw_ctx;
     drv->draw_buf = draw_buf;
+    drv->flush_cb = flush_cb;
 
     lv_disp_t *disp = lv_disp_drv_register(drv);
     lv_disp_set_default(disp);
