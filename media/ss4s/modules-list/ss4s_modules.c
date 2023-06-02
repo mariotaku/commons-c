@@ -58,8 +58,7 @@ void SS4S_ModulesListClear(array_list_t *modules) {
 }
 
 bool SS4S_ModulesSelect(const array_list_t *modules, const SS4S_ModulePreferences *preferences,
-                        SS4S_ModuleSelection *selection,
-                        bool checkModule) {
+                        SS4S_ModuleSelection *selection, bool checkModule) {
     const SS4S_ModuleInfo *selected_video_module = NULL, *selected_audio_module = NULL;
     if (preferences != NULL && !preference_auto(preferences->video_module)) {
         const SS4S_ModuleInfo *selected = module_by_id(modules, preferences->video_module);
