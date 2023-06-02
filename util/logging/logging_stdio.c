@@ -7,6 +7,8 @@
 
 static bool log_header(int level, const char *tag);
 
+static bool check_level(int level, const char *tag);
+
 static SDL_mutex *lock = NULL;
 
 void commons_logging_init() {
@@ -33,6 +35,9 @@ void commons_log_vprintf(commons_log_level level, const char *tag, const char *f
 }
 
 static bool log_header(int level, const char *tag) {
+    if (!check_level(level, tag)) {
+        return false;
+    }
     switch (level) {
         case COMMONS_LOG_LEVEL_INFO:
             fprintf(stderr, "[%.03f][%s]\x1b[36m ", (float) SDL_GetTicks() / 1000.0f, tag);
@@ -47,10 +52,15 @@ static bool log_header(int level, const char *tag) {
             fprintf(stderr, "[%.03f][%s]\x1b[41m ", (float) SDL_GetTicks() / 1000.0f, tag);
             break;
         case COMMONS_LOG_LEVEL_VERBOSE:
-            return false;
+            fprintf(stderr, "[%.03f][%s]\x1b[34m ", (float) SDL_GetTicks() / 1000.0f, tag);
+            break;
         default:
             fprintf(stderr, "[%.03f][%s] ", (float) SDL_GetTicks() / 1000.0f, tag);
             break;
     }
     return true;
+}
+
+static bool check_level(int level, const char *tag) {
+    return level < COMMONS_LOG_LEVEL_VERBOSE;
 }
