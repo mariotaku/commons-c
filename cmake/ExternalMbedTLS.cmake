@@ -36,5 +36,6 @@ add_dependencies(ext_mbedtls_target ext_mbedtls)
 set(MBEDTLS_LIBRARY ext_mbedtls_target)
 
 set(MBEDTLS_INCLUDE_DIRS ${INSTALL_DIR}/include)
+set(MBEDTLS_FOUND TRUE)
 
 install(DIRECTORY ${INSTALL_DIR}/lib/ DESTINATION lib)
