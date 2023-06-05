@@ -40,15 +40,15 @@ char *version_info_str(const version_info_t *version) {
     if (version->major < 0) {
         return NULL;
     }
-    char tmp[32];
+    char tmp[64];
     if (version->minor < 0) {
-        snprintf(tmp, 32, "%d", version->major);
+        snprintf(tmp, 64, "%d", version->major);
     } else if (version->patch < 0) {
-        snprintf(tmp, 32, "%d.%d", version->major, version->minor);
+        snprintf(tmp, 64, "%d.%d", version->major, version->minor);
     } else {
-        snprintf(tmp, 32, "%d.%d.%d", version->major, version->minor, version->patch);
+        snprintf(tmp, 64, "%d.%d.%d", version->major, version->minor, version->patch);
     }
-    return strndup(tmp, 32);
+    return strndup(tmp, 64);
 }
 
 int version_info_compare(const version_info_t *a, const version_info_t *b) {
