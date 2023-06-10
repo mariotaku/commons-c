@@ -7,9 +7,6 @@
 #include "ini.h"
 #include "array_list.h"
 
-#ifndef SS4S_MODULES_INI_PATH
-#define SS4S_MODULES_INI_PATH "lib/ss4s_modules.ini"
-#endif
 
 typedef struct modules_parse_context {
     SS4S_ModuleInfo current;
@@ -37,9 +34,17 @@ static void str_list_clear(str_list_t *list);
 
 static bool preference_auto(const char *value);
 
+const char *SS4S_ModulesListPath() {
+#ifdef SS4S_MODULES_INI_PATH
+    return SS4S_MODULES_INI_PATH;
+#else
+    return "lib/ss4s_modules.ini";
+#endif
+}
+
 int SS4S_ModulesList(array_list_t *modules, const os_info_t *os_info) {
     array_list_init(modules, sizeof(SS4S_ModuleInfo), 16);
-    FILE *f = fopen(SS4S_MODULES_INI_PATH, "r");
+    FILE *f = fopen(SS4S_ModulesListPath(), "r");
     if (f == NULL) return errno;
     modules_parse_context mpc = {.modules = modules, .os_info = os_info};
     module_info_clear(&mpc.current);
