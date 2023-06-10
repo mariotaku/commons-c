@@ -11,7 +11,8 @@ static bool check_level(int level, const char *tag);
 
 static SDL_mutex *lock = NULL;
 
-void commons_logging_init() {
+void commons_logging_init(const char *context_name) {
+    (void) context_name;
     lock = SDL_CreateMutex();
 }
 

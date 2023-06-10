@@ -7,6 +7,7 @@
 #include <SDL_log.h>
 
 typedef struct cec_sdl_ctx_t {
+    char *name;
     SDL_mutex *lock;
     SDL_cond *cond;
     SDL_mutex *cond_lock;
@@ -17,9 +18,9 @@ typedef struct cec_sdl_ctx_t {
     bool enable_unfocused;
 } cec_sdl_ctx_t;
 
-cec_sdl_ctx_t *cec_sdl_create();
+cec_sdl_ctx_t *cec_sdl_create(const char *name);
 
-void cec_sdl_init(cec_sdl_ctx_t *ctx);
+void cec_sdl_init(cec_sdl_ctx_t *ctx, const char *name);
 
 void cec_sdl_deinit(cec_sdl_ctx_t *ctx);
 

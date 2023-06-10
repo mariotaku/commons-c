@@ -8,8 +8,8 @@
 static SDL_mutex *mutex = NULL;
 static PmLogContext context;
 
-void commons_logging_init() {
-    PmLogGetContext("ihsplay", &context);
+void commons_logging_init(const char *context_name) {
+    PmLogGetContext(context_name != NULL ? context_name : "commons_logging", &context);
 }
 
 void commons_logging_deinit() {

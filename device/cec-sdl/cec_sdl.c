@@ -22,13 +22,14 @@ static ICECCallbacks cec_callbacks = {
         .keyPress = cec_sdl_cb_key,
 };
 
-cec_sdl_ctx_t *cec_sdl_create() {
+cec_sdl_ctx_t *cec_sdl_create(const char *name) {
     cec_sdl_ctx_t *ctx = calloc(1, sizeof(cec_sdl_ctx_t));
-    cec_sdl_init(ctx);
+    cec_sdl_init(ctx, name);
     return ctx;
 }
 
-void cec_sdl_init(cec_sdl_ctx_t *ctx) {
+void cec_sdl_init(cec_sdl_ctx_t *ctx, const char *name) {
+    ctx->name = name != NULL ? strdup(name) : "CEC-SDL";
     ctx->lock = SDL_CreateMutex();
     SDL_LockMutex(ctx->lock);
     ctx->cond = SDL_CreateCond();
@@ -66,7 +67,7 @@ static int cec_thread_worker(void *arg) {
     cec_conf.bActivateSource = 0;
     cec_conf.callbacks = &cec_callbacks;
     cec_conf.callbackParam = ctx;
-    snprintf(cec_conf.strDeviceName, sizeof(cec_conf.strDeviceName), "IHSplay");
+    snprintf(cec_conf.strDeviceName, sizeof(cec_conf.strDeviceName), "%s", ctx->name);
     cec_conf.deviceTypes.types[0] = CEC_DEVICE_TYPE_PLAYBACK_DEVICE;
 
     if (libcecc_initialise(&cec_conf, ctx->cec_iface, NULL) != 1) {
@@ -90,7 +91,9 @@ static inline bool cec_interrupted(cec_sdl_ctx_t *ctx) {
 }
 
 static void cb_alert(void *cbparam, const libcec_alert alert, const libcec_parameter param) {
-
+    (void) cbparam;
+    (void) alert;
+    (void) param;
 }
 
 static void reopen_first(cec_sdl_ctx_t *ctx) {

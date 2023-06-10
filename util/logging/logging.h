@@ -12,7 +12,7 @@ typedef enum commons_log_level {
     COMMONS_LOG_LEVEL_VERBOSE,
 } commons_log_level;
 
-void commons_logging_init();
+void commons_logging_init(const char *context_name);
 
 void commons_logging_deinit();
 
