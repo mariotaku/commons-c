@@ -7,7 +7,7 @@
 #include <SDL_log.h>
 
 typedef struct cec_sdl_ctx_t {
-    char *name;
+    char name[15];
     SDL_mutex *lock;
     SDL_cond *cond;
     SDL_mutex *cond_lock;

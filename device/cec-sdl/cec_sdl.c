@@ -29,7 +29,7 @@ cec_sdl_ctx_t *cec_sdl_create(const char *name) {
 }
 
 void cec_sdl_init(cec_sdl_ctx_t *ctx, const char *name) {
-    ctx->name = name != NULL ? strdup(name) : "CEC-SDL";
+    snprintf(ctx->name, 15, "%s", name != NULL ? name : "CEC-SDL");
     ctx->lock = SDL_CreateMutex();
     SDL_LockMutex(ctx->lock);
     ctx->cond = SDL_CreateCond();
@@ -51,7 +51,6 @@ void cec_sdl_deinit(cec_sdl_ctx_t *ctx) {
     SDL_DestroyCond(ctx->cond);
     SDL_DestroyMutex(ctx->lock);
     free(ctx->cec_iface);
-
 }
 
 void cec_sdl_destroy(cec_sdl_ctx_t *ctx) {
@@ -67,7 +66,7 @@ static int cec_thread_worker(void *arg) {
     cec_conf.bActivateSource = 0;
     cec_conf.callbacks = &cec_callbacks;
     cec_conf.callbackParam = ctx;
-    snprintf(cec_conf.strDeviceName, sizeof(cec_conf.strDeviceName), "%s", ctx->name);
+    strncpy(cec_conf.strDeviceName, ctx->name, 15);
     cec_conf.deviceTypes.types[0] = CEC_DEVICE_TYPE_PLAYBACK_DEVICE;
 
     if (libcecc_initialise(&cec_conf, ctx->cec_iface, NULL) != 1) {
