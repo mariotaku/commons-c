@@ -4,7 +4,7 @@
 
 static void app_lv_log_line(const char *line, size_t len);
 
-void app_lv_log(const char *message) {
+void commons_lv_log(const char *message) {
     const char *cur = message;
     do {
         const char *start = cur;

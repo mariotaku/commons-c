@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "ss4s.h"
 
-void app_ss4s_logf(SS4S_LogLevel level, const char *tag, const char *fmt, ...) {
+void commons_ss4s_logf(SS4S_LogLevel level, const char *tag, const char *fmt, ...) {
     char app_tag[32] = "SS4S.";
     strncpy(app_tag + 5, tag, 27);
     va_list arg;

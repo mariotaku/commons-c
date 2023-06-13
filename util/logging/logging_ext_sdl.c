@@ -2,7 +2,7 @@
 
 #include <SDL_log.h>
 
-void app_sdl_log(void *userdata, int category, SDL_LogPriority priority, const char *message) {
+void commons_sdl_log(void *userdata, int category, SDL_LogPriority priority, const char *message) {
     (void) userdata;
     static const commons_log_level priority_name[SDL_NUM_LOG_PRIORITIES] = {
             COMMONS_LOG_LEVEL_VERBOSE,
