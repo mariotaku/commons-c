@@ -33,17 +33,3 @@ void commons_log_vprintf(commons_log_level level, const char *tag, const char *f
 #define commons_log_debug(tag, ...) commons_log_printf(COMMONS_LOG_LEVEL_DEBUG, (tag), __VA_ARGS__)
 
 #define commons_log_verbose(tag, ...) commons_log_printf(COMMONS_LOG_LEVEL_VERBOSE, (tag), __VA_ARGS__)
-
-#ifdef COMMONS_LOGGING_SS4S
-#include "ss4s/logging.h"
-void commons_ss4s_logf(SS4S_LogLevel level, const char *tag, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
-#endif
-
-#ifdef COMMONS_LOGGING_LVGL
-void commons_lv_log(const char *message);
-#endif
-
-#ifdef COMMONS_LOGGING_SDL
-#include <SDL_log.h>
-void commons_sdl_log(void *userdata, int category, SDL_LogPriority priority, const char *message);
-#endif

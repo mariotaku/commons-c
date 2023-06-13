@@ -1,6 +1,4 @@
-#include "logging.h"
-
-#include <SDL_log.h>
+#include "logging_ext_sdl.h"
 
 void commons_sdl_log(void *userdata, int category, SDL_LogPriority priority, const char *message) {
     (void) userdata;

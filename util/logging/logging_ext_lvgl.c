@@ -1,4 +1,4 @@
-#include "logging.h"
+#include "logging_ext_lvgl.h"
 
 #include <string.h>
 
@@ -21,6 +21,7 @@ void commons_lv_log(const char *message) {
         }
     } while (cur != NULL);
 }
+
 static void app_lv_log_line(const char *line, size_t len) {
     const char *start = memchr(line, '\t', len) + 1;
     static const commons_log_level level_value[] = {

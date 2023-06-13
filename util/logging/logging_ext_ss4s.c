@@ -1,8 +1,7 @@
-#include "logging.h"
+#include "logging_ext_ss4s.h"
 
 #include <string.h>
 #include <stdio.h>
-#include "ss4s.h"
 
 void commons_ss4s_logf(SS4S_LogLevel level, const char *tag, const char *fmt, ...) {
     char app_tag[32] = "SS4S.";
