@@ -77,8 +77,9 @@ static void update_thread_start(commons_gcdb_updater_t *updater) {
 }
 
 static size_t body_cb(void *buffer, size_t size, size_t nitems, WRITE_CONTEXT *ctx) {
-    if (ctx->status < 0)
+    if (ctx->status < 0) {
         return 0;
+    }
     size_t realsize = size * nitems;
     void *allocated = realloc(ctx->buf, ctx->size + realsize + 1);
     assert(allocated != NULL);
