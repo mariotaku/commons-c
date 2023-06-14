@@ -10,7 +10,7 @@
 #include "logging.h"
 
 typedef struct WRITE_CONTEXT {
-    commons_gcdb_updater_t *updater;
+    struct commons_gcdb_updater_t *updater;
     CURL *curl;
     char *buf;
     size_t size;
@@ -49,6 +49,7 @@ void commons_gcdb_updater_deinit(commons_gcdb_updater_t *updater) {
     if (thread != NULL) {
         SDL_WaitThread(thread, NULL);
     }
+    free(updater->platform_match_substr);
     SDL_DestroyMutex(updater->lock);
 }
 
@@ -166,6 +167,7 @@ static int update_thread_run(commons_gcdb_updater_t *updater) {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
     WRITE_CONTEXT ctx = {
+            .updater = updater,
             .curl = curl,
             .buf = malloc(1)
     };
