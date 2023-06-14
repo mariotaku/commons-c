@@ -1,12 +1,14 @@
 include(ExternalProject)
 
-set(OPUS_USE_NEON ON)
 set(OPUS_DISABLE_INTRINSICS OFF)
 
-if (TARGET_WEBOS AND CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 12)
-    message(STATUS "Using GCC ${CMAKE_C_COMPILER_VERSION}. Turning off optimizations to prevent build errors")
-    set(OPUS_USE_NEON OFF)
-    set(OPUS_DISABLE_INTRINSICS ON)
+get_filename_component(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
+if (CMAKE_C_COMPILER_NAME MATCHES "arm-webos-linux-gnueabi-.*")
+    execute_process(COMMAND ${CMAKE_C_COMPILER} -v ERROR_VARIABLE GCC_WEBOS_INFO OUTPUT_QUIET)
+    if (NOT GCC_WEBOS_INFO MATCHES "--with-fpu=neon-fp16")
+        message(STATUS "Disable intrinsics as this toolchain doesn't support NEON")
+        set(OPUS_DISABLE_INTRINSICS ON)
+    endif()
 endif ()
 
 set(EXT_OPUS_TOOLCHAIN_ARGS)
@@ -24,7 +26,6 @@ ExternalProject_Add(ext_opus
         -DCMAKE_BUILD_TYPE:string=${CMAKE_BUILD_TYPE}
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DOPUS_BUILD_SHARED_LIBRARY=ON
-        -DOPUS_USE_NEON=${OPUS_USE_NEON}
         -DOPUS_DISABLE_INTRINSICS=${OPUS_DISABLE_INTRINSICS}
         -DOPUS_INSTALL_PKG_CONFIG_MODULE=OFF
         -DOPUS_INSTALL_CMAKE_CONFIG_MODULE=OFF
