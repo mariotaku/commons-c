@@ -23,4 +23,4 @@ void commons_gcdb_updater_init(commons_gcdb_updater_t *updater);
 
 void commons_gcdb_updater_deinit(commons_gcdb_updater_t *updater);
 
-void commons_gcdb_updater_update(commons_gcdb_updater_t *updater);
+bool commons_gcdb_updater_update(commons_gcdb_updater_t *updater);

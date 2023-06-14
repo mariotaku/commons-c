@@ -51,15 +51,20 @@ void commons_gcdb_updater_deinit(commons_gcdb_updater_t *updater) {
     }
     free(updater->platform_match_substr);
     SDL_DestroyMutex(updater->lock);
+    memset(updater, 0, sizeof(*updater));
 }
 
-void commons_gcdb_updater_update(commons_gcdb_updater_t *updater) {
+bool commons_gcdb_updater_update(commons_gcdb_updater_t *updater) {
     assert(updater != NULL);
+    assert(updater->lock != NULL);
+    bool started = false;
     SDL_LockMutex(updater->lock);
     if (!updater->update_running) {
         update_thread_start(updater);
+        started = true;
     }
     SDL_UnlockMutex(updater->lock);
+    return started;
 }
 
 static void update_thread_start(commons_gcdb_updater_t *updater) {
@@ -115,7 +120,7 @@ static size_t header_cb(char *buffer, size_t size, size_t nitems, WRITE_CONTEXT 
     if (ctx->status == 0) {
         int status = 0;
         curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &status);
-        if (status >= 300 && status <= 399) {
+        if (status == 301 || status == 302) {
             return size * nitems;
         }
         ctx->status = status;
@@ -219,6 +224,7 @@ void setup_headers(commons_gcdb_updater_t *updater, struct curl_slist **headers)
         if (strncmp(linebuf, "# etag: ", 8) == 0) {
             char headbuf[2048];
             snprintf(headbuf, 2047, "if-none-match: %s", &linebuf[8]);
+            commons_log_verbose("GameControllerDB", "Get update with ETag: %s", &linebuf[8]);
             *headers = curl_slist_append(*headers, headbuf);
         }
     }
