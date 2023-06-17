@@ -1,3 +1,6 @@
 add_subdirectory(array-list)
 add_subdirectory(logging)
 add_subdirectory(version-info)
+add_subdirectory(uuidstr)
+add_subdirectory(lazy)
+add_subdirectory(refcounter)
