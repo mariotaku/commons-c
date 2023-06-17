@@ -8,7 +8,7 @@ typedef int (*executor_action_cb)(void *arg);
 
 typedef void (*executor_cleanup_cb)(void *arg, int result);
 
-typedef void (*executor_finalize_cb)(executor_t *executor);
+typedef void (*executor_finalize_cb)(executor_t *executor, int wait);
 
 executor_t *executor_create(const char *name, executor_finalize_cb finalize_fn);
 
@@ -25,6 +25,8 @@ const executor_task_t *executor_execute(executor_t *executor, executor_action_cb
 void executor_cancel(executor_t *executor, const executor_task_t *task);
 
 void *executor_get_userdata(executor_t *executor);
+
+void *executor_get_thread_handle(executor_t *executor);
 
 void executor_set_userdata(executor_t *executor, void *userdata);
 

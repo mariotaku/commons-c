@@ -46,8 +46,6 @@ static int task_identical(executor_task_t *p, const void *fv);
 
 static void task_destroy(executor_task_t *task);
 
-static void thread_wait(SDL_Thread *thread);
-
 executor_t *executor_create(const char *name, executor_finalize_cb finalize_fn) {
     executor_t *executor = calloc(1, sizeof(executor_t));
     executor->destroyed = SDL_FALSE;
@@ -66,10 +64,7 @@ void executor_destroy(executor_t *executor, int wait) {
     SDL_CondSignal(executor->cond);
     SDL_UnlockMutex(executor->lock);
     if (wait) {
-        thread_wait(executor->thread);
-        if (executor->finalize != NULL) {
-            executor->finalize(executor);
-        }
+        executor->finalize(executor, 1);
         free(executor);
     }
 }
@@ -111,6 +106,10 @@ void executor_cancel(executor_t *executor, const executor_task_t *task) {
 
 void *executor_get_userdata(executor_t *executor) {
     return executor->userdata;
+}
+
+void *executor_get_thread_handle(executor_t *executor) {
+    return executor->thread;
 }
 
 void executor_set_userdata(executor_t *executor, void *userdata) {
@@ -173,10 +172,7 @@ static int thread_worker(void *context) {
     executor->cond = NULL;
     executor->lock = NULL;
     if (!executor->wait) {
-        SDL_DetachThread(executor->thread);
-        if (executor->finalize != NULL) {
-            executor->finalize(executor);
-        }
+        executor->finalize(executor, 0);
         free(executor);
     }
     return 0;
@@ -193,8 +189,3 @@ static void task_destroy(executor_task_t *task) {
     free(task);
 }
 
-static void thread_wait(SDL_Thread *thread) {
-    const char *name = SDL_GetThreadName(thread);
-    commons_log_debug("Executor", "Freeing thread %s", name ? name : "unnamed");
-    SDL_WaitThread(thread, NULL);
-}
