@@ -2,6 +2,7 @@
 
 #include <libhelpers.h>
 #include <pthread.h>
+#include <string.h>
 
 struct HContextSync {
     union {
@@ -19,7 +20,7 @@ static bool callback(LSHandle *sh, LSMessage *reply, void *ctx);
 bool HLunaServiceCallSync(const char *uri, const char *payload, bool public, char **output) {
     struct HContextSync context = {.base.ctx = {
             .multiple = 0,
-            .public = public ? 1 : 0,
+            .pub = public ? 1 : 0,
             .callback = callback,
     }};
 
