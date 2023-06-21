@@ -38,8 +38,6 @@ typedef struct module_selection_t {
     const SS4S_ModuleInfo *video_module;
 } SS4S_ModuleSelection;
 
-const char *SS4S_ModulesListPath();
-
 /**
  * Load modules info into the modules pointer
  * @param modules Array modules pointer to load into

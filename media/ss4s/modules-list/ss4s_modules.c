@@ -1,10 +1,11 @@
 #include "ss4s_modules.h"
+#include "ss4s/modules_ini.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 
-#include "ini.h"
+#include <ini.h>
 #include "array_list.h"
 
 
@@ -34,21 +35,14 @@ static void str_list_clear(str_list_t *list);
 
 static bool preference_auto(const char *value);
 
-const char *SS4S_ModulesListPath() {
-#ifdef SS4S_MODULES_INI_PATH
-    return SS4S_MODULES_INI_PATH;
-#else
-    return "lib/ss4s_modules.ini";
-#endif
-}
-
 int SS4S_ModulesList(array_list_t *modules, const os_info_t *os_info) {
     array_list_init(modules, sizeof(SS4S_ModuleInfo), 16);
-    FILE *f = fopen(SS4S_ModulesListPath(), "r");
-    if (f == NULL) return errno;
+    FILE *f = SS4S_ModulesListFileOpen();
+    if (f == NULL) { return errno; }
     modules_parse_context mpc = {.modules = modules, .os_info = os_info};
     module_info_clear(&mpc.current);
     ini_parse_file(f, modules_ini_handler, &mpc);
+    SS4S_ModulesListFileClose(f);
     section_changed(&mpc);
     modules_parse_context_destroy(&mpc);
     array_list_qsort(modules, module_weight_compare_fn);
@@ -99,21 +93,20 @@ bool SS4S_ModulesSelect(const array_list_t *modules, const SS4S_ModulePreference
             }
         }
     }
-    if (selected_video_module == NULL) {
-        return false;
-    }
     if (preferences != NULL && !preference_auto(preferences->audio_module)) {
         const SS4S_ModuleInfo *selected = module_by_id(modules, preferences->audio_module);
         if (selected != NULL && selected->has_audio &&
-            (!checkModule || !SS4S_ModuleInfoConflicts(selected_video_module, selected) &&
-                             SS4S_ModuleCheck(selected->id, SS4S_MODULE_CHECK_AUDIO))) {
+            (!checkModule ||
+             (selected_video_module != NULL && !SS4S_ModuleInfoConflicts(selected_video_module, selected)) &&
+             SS4S_ModuleCheck(selected->id, SS4S_MODULE_CHECK_AUDIO))) {
             selected_audio_module = selected;
         }
     }
     if (selected_audio_module == NULL) {
         for (int i = 0, j = array_list_size(modules); i < j; ++i) {
             const SS4S_ModuleInfo *info = array_list_get((array_list_t *) modules, i);
-            if (!info->has_audio || checkModule && SS4S_ModuleInfoConflicts(selected_video_module, info)) {
+            if (!info->has_audio || checkModule && (selected_video_module != NULL &&
+                                                    SS4S_ModuleInfoConflicts(selected_video_module, info))) {
                 continue;
             }
             if (!checkModule || SS4S_ModuleCheck(info->id, SS4S_MODULE_CHECK_AUDIO)) {
@@ -122,12 +115,9 @@ bool SS4S_ModulesSelect(const array_list_t *modules, const SS4S_ModulePreference
             }
         }
     }
-    if (selected_audio_module == NULL) {
-        return false;
-    }
     selection->audio_module = selected_audio_module;
     selection->video_module = selected_video_module;
-    return true;
+    return selected_audio_module != NULL && selected_video_module != NULL;
 }
 
 bool SS4S_ModuleInfoConflicts(const SS4S_ModuleInfo *a, const SS4S_ModuleInfo *b) {
