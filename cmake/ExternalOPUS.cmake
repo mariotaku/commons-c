@@ -29,6 +29,7 @@ ExternalProject_Add(ext_opus
         -DOPUS_DISABLE_INTRINSICS=${OPUS_DISABLE_INTRINSICS}
         -DOPUS_INSTALL_PKG_CONFIG_MODULE=OFF
         -DOPUS_INSTALL_CMAKE_CONFIG_MODULE=OFF
+        BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libopus.so
         )
 ExternalProject_Get_Property(ext_opus INSTALL_DIR)
 

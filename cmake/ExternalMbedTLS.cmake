@@ -17,6 +17,8 @@ ExternalProject_Add(ext_mbedtls
         -DENABLE_TESTING=OFF
         -DUSE_SHARED_MBEDTLS_LIBRARY=ON
         -DUSE_STATIC_MBEDTLS_LIBRARY=OFF
+        BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libmbedcrypto.so <INSTALL_DIR>/lib/libmbedx509.so
+        <INSTALL_DIR>/lib/libmbedtls.so
         )
 ExternalProject_Get_Property(ext_mbedtls INSTALL_DIR)
 

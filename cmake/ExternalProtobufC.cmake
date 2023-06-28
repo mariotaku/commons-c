@@ -16,6 +16,7 @@ ExternalProject_Add(ext_protobuf_c
         -DBUILD_SHARED_LIBS=ON
         -DCMAKE_BUILD_TYPE:string=${CMAKE_BUILD_TYPE}
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libprotobuf-c.so
         )
 ExternalProject_Get_Property(ext_protobuf_c INSTALL_DIR)
 

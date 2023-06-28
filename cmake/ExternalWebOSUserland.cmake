@@ -30,8 +30,13 @@ macro(add_webos_userland_library)
     cmake_parse_arguments(_ADD "" "PREFIX;SONAME" "INCLUDES" ${ARGN})
     string(TOLOWER "${_ADD_PREFIX}" _ADD_PREFIX_LOWER)
     set(_ADD_TARGET "${_ADD_PREFIX_LOWER}_target")
+    if (TARGET ${_ADD_TARGET})
+        return()
+    endif ()
     add_library(${_ADD_TARGET} SHARED IMPORTED)
     set_target_properties(${_ADD_TARGET} PROPERTIES IMPORTED_LOCATION "${INSTALL_DIR}/lib/${_ADD_SONAME}")
+
+    ExternalProject_Add_Step(ext_webos_userland lib_${_ADD_PREFIX_LOWER} BYPRODUCTS "${INSTALL_DIR}/lib/${_ADD_SONAME}")
 
     add_dependencies(${_ADD_TARGET} ext_webos_userland)
 

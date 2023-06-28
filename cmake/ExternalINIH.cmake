@@ -30,6 +30,7 @@ install(TARGETS inih LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} NAMELINK_SKIP)
             CMAKE_ARGS ${EXT_INIH_TOOLCHAIN_ARGS}
             -DCMAKE_BUILD_TYPE:string=${CMAKE_BUILD_TYPE}
             -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+            BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libinih.so.1
             )
     ExternalProject_Get_Property(ext_inih INSTALL_DIR)
 
