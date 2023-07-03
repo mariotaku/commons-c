@@ -31,7 +31,12 @@ void commons_log_vprintf(commons_log_level level, const char *tag, const char *f
         return;
     }
     vfprintf(stderr, fmt, arg);
-    fprintf(stderr, "\x1b[0m\n");
+    int last_idx = (int) strlen(fmt) - 1;
+    if (last_idx >= 0 && fmt[last_idx] == '\n') {
+        fprintf(stderr, "\x1b[0m");
+    } else {
+        fprintf(stderr, "\x1b[0m\n");
+    }
     SDL_UnlockMutex(lock);
 }
 

@@ -19,7 +19,10 @@ void commons_logging_deinit() {
 void commons_log_vprintf(commons_log_level level, const char *tag, const char *fmt, va_list arg) {
     char msg[1024];
     vsnprintf(msg, 1023, fmt, arg);
-    msg[1023] = '\0';
+    char *brk = strrchr(msg, '\n');
+    if (brk != NULL) {
+        *brk = '\0';
+    }
     FILE *output = stdout;
     switch (level) {
         case COMMONS_LOG_LEVEL_FATAL:
