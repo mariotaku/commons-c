@@ -19,6 +19,8 @@ if (CMAKE_TOOLCHAIN_ARGS)
     list(APPEND EXT_OPUS_TOOLCHAIN_ARGS "-DCMAKE_TOOLCHAIN_ARGS:string=${CMAKE_TOOLCHAIN_ARGS}")
 endif ()
 
+set(LIB_FILENAME "${CMAKE_SHARED_LIBRARY_PREFIX}opus${CMAKE_SHARED_LIBRARY_SUFFIX}")
+
 ExternalProject_Add(ext_opus
         URL https://downloads.xiph.org/releases/opus/opus-1.4.tar.gz
         URL_HASH SHA256=c9b32b4253be5ae63d1ff16eea06b94b5f0f2951b7a02aceef58e3a3ce49c51f
@@ -29,12 +31,12 @@ ExternalProject_Add(ext_opus
         -DOPUS_DISABLE_INTRINSICS=${OPUS_DISABLE_INTRINSICS}
         -DOPUS_INSTALL_PKG_CONFIG_MODULE=OFF
         -DOPUS_INSTALL_CMAKE_CONFIG_MODULE=OFF
-        BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libopus.so
+        BUILD_BYPRODUCTS <INSTALL_DIR>/lib/${LIB_FILENAME}
         )
 ExternalProject_Get_Property(ext_opus INSTALL_DIR)
 
 add_library(ext_opus_target SHARED IMPORTED)
-set_target_properties(ext_opus_target PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/libopus.so)
+set_target_properties(ext_opus_target PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/${LIB_FILENAME})
 
 add_dependencies(ext_opus_target ext_opus)
 

@@ -24,18 +24,24 @@ install(TARGETS inih LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} NAMELINK_SKIP)
         list(APPEND EXT_INIH_TOOLCHAIN_ARGS "-DCMAKE_TOOLCHAIN_ARGS:string=${CMAKE_TOOLCHAIN_ARGS}")
     endif ()
 
+    if (CMAKE_SHARED_LIBRARY_SUFFIX STREQUAL ".so")
+        set(LIBRARY_NAME "${CMAKE_SHARED_LIBRARY_PREFIX}inih.so.1")
+    else ()
+        set(LIBRARY_NAME "${CMAKE_SHARED_LIBRARY_PREFIX}inih${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    endif ()
+
     ExternalProject_Add(ext_inih
             URL https://github.com/benhoyt/inih/archive/refs/tags/r56.tar.gz
             PATCH_COMMAND cmake -E copy "${EXT_INIH_CMAKELISTS_FILE}" CMakeLists.txt
             CMAKE_ARGS ${EXT_INIH_TOOLCHAIN_ARGS}
             -DCMAKE_BUILD_TYPE:string=${CMAKE_BUILD_TYPE}
             -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-            BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libinih.so.1
+            BUILD_BYPRODUCTS <INSTALL_DIR>/lib/${LIBRARY_NAME}
             )
     ExternalProject_Get_Property(ext_inih INSTALL_DIR)
 
     add_library(ext_inih_target SHARED IMPORTED)
-    set_target_properties(ext_inih_target PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/libinih.so.1)
+    set_target_properties(ext_inih_target PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/${LIBRARY_NAME})
 
     add_dependencies(ext_inih_target ext_inih)
 

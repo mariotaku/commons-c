@@ -18,27 +18,41 @@ ExternalProject_Add(ext_mbedtls
         -DDISABLE_PACKAGE_CONFIG_AND_INSTALL=ON
         -DUSE_SHARED_MBEDTLS_LIBRARY=ON
         -DUSE_STATIC_MBEDTLS_LIBRARY=OFF
-        BUILD_BYPRODUCTS <INSTALL_DIR>/lib/libmbedcrypto.so <INSTALL_DIR>/lib/libmbedx509.so
-        <INSTALL_DIR>/lib/libmbedtls.so
         )
 ExternalProject_Get_Property(ext_mbedtls INSTALL_DIR)
 
-add_library(ext_mbedcrypto_target SHARED IMPORTED)
-set_target_properties(ext_mbedcrypto_target PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/libmbedcrypto.so)
-add_dependencies(ext_mbedcrypto_target ext_mbedtls)
-set(MBEDCRYPTO_LIBRARY ext_mbedcrypto_target)
 
-add_library(ext_mbedx509_target SHARED IMPORTED)
-set_target_properties(ext_mbedx509_target PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/libmbedx509.so)
-add_dependencies(ext_mbedx509_target ext_mbedtls)
-set(MBEDX509_LIBRARY ext_mbedx509_target)
+macro(add_mbedtls_library)
+    cmake_parse_arguments(_ADD "" "PREFIX;NAME" "INCLUDES" ${ARGN})
+    string(TOLOWER "${_ADD_PREFIX}" _ADD_PREFIX_LOWER)
+    set(_ADD_TARGET "${_ADD_PREFIX_LOWER}_target")
+    if (TARGET ${_ADD_TARGET})
+        return()
+    endif ()
+    add_library(${_ADD_TARGET} SHARED IMPORTED)
+    set(LIB_FILENAME "${CMAKE_SHARED_LIBRARY_PREFIX}${_ADD_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set_target_properties(${_ADD_TARGET} PROPERTIES IMPORTED_LOCATION "${INSTALL_DIR}/lib/${LIB_FILENAME}")
 
-add_library(ext_mbedtls_target SHARED IMPORTED)
-set_target_properties(ext_mbedtls_target PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/libmbedtls.so)
-add_dependencies(ext_mbedtls_target ext_mbedtls)
-set(MBEDTLS_LIBRARY ext_mbedtls_target)
+    ExternalProject_Add_Step(ext_mbedtls lib_${_ADD_PREFIX_LOWER} BYPRODUCTS "${INSTALL_DIR}/lib/${LIB_FILENAME}")
 
-set(MBEDTLS_INCLUDE_DIRS ${INSTALL_DIR}/include)
+    add_dependencies(${_ADD_TARGET} ext_mbedtls)
+
+    if (_ADD_INCLUDES)
+        list(TRANSFORM _ADD_INCLUDES PREPEND "${INSTALL_DIR}/include/")
+        set(${_ADD_PREFIX}_INCLUDE_DIRS ${_ADD_INCLUDES})
+    else ()
+        set(${_ADD_PREFIX}_INCLUDE_DIRS ${INSTALL_DIR}/include)
+    endif ()
+    set(${_ADD_PREFIX}_INCLUDEDIR ${INSTALL_DIR}/include)
+    set(${_ADD_PREFIX}_LIBRARY ${_ADD_TARGET})
+    set(${_ADD_PREFIX}_LIBRARIES ${_ADD_TARGET})
+endmacro()
+
+
+add_mbedtls_library(PREFIX MBEDCRYPTO NAME mbedcrypto)
+add_mbedtls_library(PREFIX MBEDX509 NAME mbedx509)
+add_mbedtls_library(PREFIX MBEDTLS NAME mbedtls)
+
 set(MBEDTLS_FOUND TRUE)
 
 install(DIRECTORY ${INSTALL_DIR}/lib/ DESTINATION lib)
