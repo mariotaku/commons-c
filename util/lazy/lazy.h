@@ -38,7 +38,12 @@ static inline void *lazy_obtain(lazy_t *lazy) {
 }
 
 static inline void *lazy_deinit(lazy_t *lazy) {
-    void *value = lazy_obtain(lazy);
+    void *value = NULL;
+    SDL_LockMutex(lazy->mutex);
+    if (lazy->value_supplied) {
+        value = lazy->value;
+    }
+    SDL_UnlockMutex(lazy->mutex);
     SDL_DestroyMutex(lazy->mutex);
     memset(lazy, 0, sizeof(lazy_t));
     return value;
