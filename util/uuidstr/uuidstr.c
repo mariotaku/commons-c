@@ -8,6 +8,15 @@ void uuidstr_fromstr(uuidstr_t *dest, const char *src) {
     dest->zero = 0;
 }
 
+void uuidstr_fromchars(uuidstr_t *dest, size_t len, const char *src) {
+    if (len != UUIDSTR_LENGTH) {
+        dest->data[0] = 0;
+        return;
+    }
+    memcpy(dest, src, UUIDSTR_LENGTH);
+    dest->zero = 0;
+}
+
 char *uuidstr_tostr(const uuidstr_t *src) {
     char *str = calloc(UUIDSTR_CAPACITY, sizeof(char));
     memcpy(str, src->data, UUIDSTR_LENGTH);

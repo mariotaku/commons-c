@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #define UUIDSTR_LENGTH 36
 #define UUIDSTR_CAPACITY 37
@@ -11,6 +12,8 @@ typedef struct uuidstr_t {
 } uuidstr_t;
 
 void uuidstr_fromstr(uuidstr_t *dest, const char *src);
+
+void uuidstr_fromchars(uuidstr_t *dest, size_t len, const char *src);
 
 bool uuidstr_random(uuidstr_t *dest);
 
