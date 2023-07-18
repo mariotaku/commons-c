@@ -8,8 +8,6 @@ typedef int (*executor_action_cb)(void *arg);
 
 typedef void (*executor_cleanup_cb)(void *arg, int result);
 
-typedef void (*executor_finalize_cb)(executor_t *executor, int wait);
-
 executor_t *executor_create(const char *name, int num_threads);
 
 void executor_destroy(executor_t *executor);
@@ -24,8 +22,10 @@ const executor_task_t *executor_execute(executor_t *executor, executor_action_cb
  */
 int executor_cancel(executor_t *executor, const executor_task_t *task);
 
-int executor_is_cancelled(const  executor_t *executor, const executor_task_t *task);
+int executor_is_cancelled(const executor_t *executor, const executor_task_t *task);
 
 int executor_active_tasks_count(const executor_t *executor);
 
 int executor_is_destroyed(const executor_t *executor);
+
+int executor_noop(void *arg);

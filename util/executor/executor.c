@@ -114,6 +114,8 @@ void executor_destroy(executor_t *executor) {
 
 const executor_task_t *executor_execute(executor_t *executor, executor_action_cb action, executor_cleanup_cb finalize,
                                         void *arg) {
+    SDL_assert(executor != NULL);
+    SDL_assert(action != NULL);
     SDL_LockMutex(executor->lock);
     if (executor->destroyed) {
         SDL_UnlockMutex(executor->lock);
@@ -163,6 +165,11 @@ int executor_is_destroyed(const executor_t *executor) {
     int destroyed = executor->destroyed;
     SDL_UnlockMutex(executor->lock);
     return destroyed;
+}
+
+int executor_noop(void *arg) {
+    (void) arg;
+    return 0;
 }
 
 static int thread_worker(void *context) {
