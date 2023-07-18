@@ -135,17 +135,20 @@ int executor_cancel(executor_t *executor, const executor_task_t *task) {
     return queue_cancel_task(&executor->active, task) || queue_cancel_task(&executor->pending, task);
 }
 
-int executor_is_cancelled(const executor_t *executor, const executor_task_t *task) {
+executor_task_state_t executor_task_state(const executor_t *executor, const executor_task_t *task) {
     if (executor_is_destroyed(executor) != 0) {
-        return -1;
+        return EXECUTOR_TASK_STATE_NOT_FOUND;
     }
 
     int cancelled = queue_is_task_cancelled(&executor->active, task);
     if (cancelled != -1) {
-        return cancelled;
+        return cancelled ? EXECUTOR_TASK_STATE_CANCELLED : EXECUTOR_TASK_STATE_ACTIVE;
     }
     cancelled = queue_is_task_cancelled(&executor->pending, task);
-    return cancelled;
+    if (cancelled == -1) {
+        return EXECUTOR_TASK_STATE_NOT_FOUND;
+    }
+    return cancelled ? EXECUTOR_TASK_STATE_CANCELLED : EXECUTOR_TASK_STATE_PENDING;
 }
 
 int executor_active_tasks_count(const executor_t *executor) {
@@ -254,14 +257,17 @@ static void queue_unlock(executor_queue_t *queue) {
 }
 
 static int queue_is_task_cancelled(const executor_queue_t *queue, const executor_task_t *task) {
-    int cancelled = -1;
+    int result = -1;
+    if (task == NULL) {
+        return result;
+    }
     SDL_LockMutex(queue->lock);
     executor_task_t *match = tasks_find_by(queue->head, task, task_identical);
     if (match != NULL) {
-        cancelled = task_is_cancelled(match);
+        result = task_is_cancelled(match);
     }
     SDL_UnlockMutex(queue->lock);
-    return cancelled;
+    return result;
 }
 
 static int queue_cancel_task(executor_queue_t *queue, const executor_task_t *task) {
