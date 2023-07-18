@@ -1,12 +1,16 @@
 add_library(commons-logging logging_common.c)
 
 pkg_check_modules(PMLOG PmLogLib)
+pkg_check_modules(SDL2 sdl2)
+
 if (PMLOG_FOUND)
     target_include_directories(commons-logging SYSTEM PRIVATE ${PMLOG_INCLUDE_DIRS})
     target_link_libraries(commons-logging PRIVATE ${PMLOG_LIBRARIES})
     target_sources(commons-logging PRIVATE logging_pmlog.c)
-else ()
+elseif (SDL2_FOUND)
     target_sources(commons-logging PRIVATE logging_stdio.c)
+    target_include_directories(commons-logging SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(commons-logging PRIVATE ${SDL2_LIBRARIES})
 endif ()
 
 if (COMMONS_LOGGING_SDL)
