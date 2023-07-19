@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include "logging.h"
+#include "executor.h"
 #include "gamecontrollerdb_updater.h"
 
 int main() {
@@ -14,7 +15,9 @@ int main() {
 
     unlink(updater.path);
 
-    commons_gcdb_updater_init(&updater);
+    executor_t *executor = executor_create("gcdb_update", 1);
+
+    commons_gcdb_updater_init(&updater, executor);
     assert(commons_gcdb_updater_update(&updater));
     assert(!commons_gcdb_updater_update(&updater));
     while (access(updater.path, F_OK) != 0 && errno == ENOENT) {
@@ -22,5 +25,6 @@ int main() {
     }
     assert(commons_gcdb_updater_update(&updater));
     commons_gcdb_updater_deinit(&updater);
+    executor_destroy(executor);
     commons_logging_deinit();
 }

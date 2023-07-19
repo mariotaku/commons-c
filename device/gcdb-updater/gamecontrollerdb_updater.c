@@ -7,30 +7,36 @@
 #include <errno.h>
 #include <curl/curl.h>
 
+#include "executor.h"
 #include "logging.h"
 
-typedef struct WRITE_CONTEXT {
-    struct commons_gcdb_updater_t *updater;
+typedef struct write_context {
+    commons_gcdb_updater_t *updater;
     CURL *curl;
     char *buf;
     size_t size;
     FILE *fp;
     int status;
-} WRITE_CONTEXT;
+} task_context;
 
-static void update_thread_start(commons_gcdb_updater_t *updater);
+static bool update_thread_start(commons_gcdb_updater_t *updater);
 
-static int update_thread_run(commons_gcdb_updater_t *updater);
+static int update_task(void *arg);
 
-static void write_mapping_lines(WRITE_CONTEXT *ctx);
+static void update_finalizer(void *arg, int result);
+
+static void write_mapping_lines(task_context *ctx);
 
 static void setup_headers(commons_gcdb_updater_t *updater, struct curl_slist **headers);
 
-void commons_gcdb_updater_init(commons_gcdb_updater_t *updater) {
+void commons_gcdb_updater_init(commons_gcdb_updater_t *updater, executor_t *executor) {
     assert(updater != NULL);
     assert(updater->platform != NULL);
     assert(updater->path != NULL);
+    assert(updater->update_task == NULL);
+    assert(executor != NULL);
 
+    updater->executor = executor;
     updater->lock = SDL_CreateMutex();
 
     const char *platform = updater->platform_use != NULL ? updater->platform_use : updater->platform;
@@ -44,11 +50,11 @@ void commons_gcdb_updater_init(commons_gcdb_updater_t *updater) {
 void commons_gcdb_updater_deinit(commons_gcdb_updater_t *updater) {
     assert(updater != NULL);
     SDL_LockMutex(updater->lock);
-    SDL_Thread *thread = updater->update_thread;
-    SDL_UnlockMutex(updater->lock);
-    if (thread != NULL) {
-        SDL_WaitThread(thread, NULL);
+    if (updater->update_task != NULL) {
+        executor_cancel(updater->executor, updater->update_task);
+        updater->update_task = NULL;
     }
+    SDL_UnlockMutex(updater->lock);
     free(updater->platform_match_substr);
     SDL_DestroyMutex(updater->lock);
     memset(updater, 0, sizeof(*updater));
@@ -59,24 +65,31 @@ bool commons_gcdb_updater_update(commons_gcdb_updater_t *updater) {
     assert(updater->lock != NULL);
     bool started = false;
     SDL_LockMutex(updater->lock);
-    if (!updater->update_running) {
-        update_thread_start(updater);
-        started = true;
+    executor_task_state_t state = executor_task_state(updater->executor, updater->update_task);
+    if (state == EXECUTOR_TASK_STATE_NOT_FOUND || state == EXECUTOR_TASK_STATE_CANCELLED) {
+        started = update_thread_start(updater);
     }
     SDL_UnlockMutex(updater->lock);
     return started;
 }
 
-static void update_thread_start(commons_gcdb_updater_t *updater) {
-    updater->update_running = true;
-    if (updater->update_thread != NULL) {
-        SDL_WaitThread(updater->update_thread, NULL);
-        updater->update_thread = NULL;
+static bool update_thread_start(commons_gcdb_updater_t *updater) {
+    task_context *ctx = calloc(1, sizeof(task_context));
+    ctx->updater = updater;
+    ctx->curl = curl_easy_init();
+    ctx->buf = malloc(1);
+    const executor_task_t *task = executor_submit(updater->executor, update_task, update_finalizer, ctx);
+    if (task == NULL) {
+        curl_easy_cleanup(ctx->curl);
+        free(ctx->buf);
+        free(ctx);
+        return false;
     }
-    updater->update_thread = SDL_CreateThread((SDL_ThreadFunction) update_thread_run, "gcdb_upd", updater);
+    updater->update_task = task;
+    return true;
 }
 
-static size_t body_cb(void *buffer, size_t size, size_t nitems, WRITE_CONTEXT *ctx) {
+static size_t body_cb(void *buffer, size_t size, size_t nitems, task_context *ctx) {
     if (ctx->status < 0) {
         return 0;
     }
@@ -92,7 +105,7 @@ static size_t body_cb(void *buffer, size_t size, size_t nitems, WRITE_CONTEXT *c
     return realsize;
 }
 
-static void write_header_lines(WRITE_CONTEXT *ctx) {
+static void write_header_lines(task_context *ctx) {
     if (!ctx->fp) {
         return;
     }
@@ -101,8 +114,9 @@ static void write_header_lines(WRITE_CONTEXT *ctx) {
         char *nextLine = memchr(curLine, '\n', ctx->size - (curLine - ctx->buf));
         if (nextLine) {
             *nextLine = '\0';
-            if (nextLine > curLine)
+            if (nextLine > curLine) {
                 nextLine[-1] = '\0';
+            }
             char *headerValue = strstr(curLine, ": ");
             if (headerValue && strncasecmp(curLine, "etag", headerValue - curLine) == 0) {
                 fprintf(ctx->fp, "# etag: %s\n", headerValue + 2);
@@ -117,7 +131,7 @@ static void write_header_lines(WRITE_CONTEXT *ctx) {
     }
 }
 
-static size_t header_cb(char *buffer, size_t size, size_t nitems, WRITE_CONTEXT *ctx) {
+static size_t header_cb(char *buffer, size_t size, size_t nitems, task_context *ctx) {
     if (ctx->status == 0) {
         int status = 0;
         curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &status);
@@ -159,55 +173,65 @@ static size_t header_cb(char *buffer, size_t size, size_t nitems, WRITE_CONTEXT 
     return realsize;
 }
 
-static int update_thread_run(commons_gcdb_updater_t *updater) {
-    CURL *curl = curl_easy_init();
-    char *const url = "https://github.com/gabomdq/SDL_GameControllerDB/raw/master/gamecontrollerdb.txt";
+static int update_task(void *arg) {
+    task_context *ctx = arg;
+    CURL *curl = ctx->curl;
+    static char *const url = "https://github.com/gabomdq/SDL_GameControllerDB/raw/master/gamecontrollerdb.txt";
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, body_cb);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
     struct curl_slist *headers = NULL;
-    setup_headers(updater, &headers);
+    setup_headers(ctx->updater, &headers);
     if (headers != NULL) {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
-    WRITE_CONTEXT ctx = {
-            .updater = updater,
-            .curl = curl,
-            .buf = malloc(1)
-    };
 
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ctx);
-    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &ctx);
-    CURLcode res = curl_easy_perform(curl);
-    if (ctx.status == 200) {
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, ctx);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, ctx);
+    CURLcode code = curl_easy_perform(curl);
+    commons_gcdb_status_t result;
+    if (ctx->status == 200) {
         commons_log_debug("GameControllerDB", "Updated controller db");
-    } else if (ctx.status == 304) {
+        result = COMMONS_GCDB_UPDATER_UPDATED;
+    } else if (ctx->status == 304) {
         commons_log_debug("GameControllerDB", "Controller db has no update");
-    } else if (ctx.status >= 400) {
-        commons_log_warn("GameControllerDB", "Failed to fetch %s: (HTTP %d)", url, ctx.status);
-    } else if (res != CURLE_OK) {
-        commons_log_warn("GameControllerDB", "Failed to fetch %s: (%d, curl %d)", url, ctx.status, res);
+        result = COMMONS_GCDB_UPDATER_NO_UPDATE;
+    } else if (ctx->status >= 400) {
+        commons_log_warn("GameControllerDB", "Failed to fetch %s: (HTTP %d)", url, ctx->status);
+        result = COMMONS_GCDB_UPDATER_HTTP_ERROR;
+    } else if (code != CURLE_OK) {
+        commons_log_warn("GameControllerDB", "Failed to fetch %s: (%d, curl %d)", url, ctx->status, code);
+        result = COMMONS_GCDB_UPDATER_CURL_ERROR;
+    } else {
+        result = COMMONS_GCDB_UPDATER_NO_UPDATE;
     }
-    if (ctx.fp) {
+    if (ctx->fp) {
         commons_log_debug("GameControllerDB", "Unlocking controller db file");
 #ifndef __WIN32
-        lockf(fileno(ctx.fp), F_ULOCK, 0);
+        lockf(fileno(ctx->fp), F_ULOCK, 0);
 #endif
-        fclose(ctx.fp);
+        fclose(ctx->fp);
     }
-    free(ctx.buf);
 
     if (headers) {
         curl_slist_free_all(headers);
     }
-    curl_easy_cleanup(curl);
 
-    SDL_LockMutex(updater->lock);
-    updater->update_running = false;
-    SDL_UnlockMutex(updater->lock);
-    return res;
+    return (int) result;
+}
+
+static void update_finalizer(void *arg, int result) {
+    task_context *ctx = arg;
+    if (result != ECANCELED) {
+        if (ctx->updater->callback != NULL) {
+            ctx->updater->callback((commons_gcdb_status_t) result, ctx->updater->callback_ctx);
+        }
+    }
+    free(ctx->buf);
+    curl_easy_cleanup(ctx->curl);
+    free(ctx);
 }
 
 void setup_headers(commons_gcdb_updater_t *updater, struct curl_slist **headers) {
@@ -233,7 +257,7 @@ void setup_headers(commons_gcdb_updater_t *updater, struct curl_slist **headers)
     fclose(fp);
 }
 
-void write_mapping_lines(WRITE_CONTEXT *ctx) {
+void write_mapping_lines(task_context *ctx) {
     if (ctx->fp == NULL) {
         return;
     }

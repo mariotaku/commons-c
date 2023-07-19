@@ -42,7 +42,7 @@ int main() {
         task_context_t *ctx = calloc(1, sizeof(task_context_t));
         ctx->array = array;
         ctx->index = i;
-        executor_execute(executor, task, finalizer, ctx);
+        executor_submit(executor, task, finalizer, ctx);
     }
     sleep(4);
     // e & f should be 0

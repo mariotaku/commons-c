@@ -17,15 +17,28 @@ typedef enum executor_task_state_t {
 
 executor_t *executor_create(const char *name, int num_threads);
 
+/**
+ * Destroy resources and threads of this executor.
+ * All threads created will be joined, and all the tasks will be finalized
+ * @param executor Executor to destroy
+ */
 void executor_destroy(executor_t *executor);
 
-const executor_task_t *executor_execute(executor_t *executor, executor_action_cb action, executor_cleanup_cb finalize,
-                                        void *arg);
+/**
+ * Create a new task and add to the queue to execute
+ * @param executor Executor instance
+ * @param action Task action. If a task gets cancelled, then the action won't be invoked
+ * @param finalize Handle action result and free up resources. It will always be invoked even for cancelled task
+ * @param arg Context to pass into action
+ * @return Pointer of created task
+ */
+const executor_task_t *executor_submit(executor_t *executor, executor_action_cb action, executor_cleanup_cb finalize,
+                                       void *arg);
 
 /**
- *
- * @param executor
- * @param task Task to cancel. If null, all tasks will be cancelled
+ * Cancel a task
+ * @param executor Executor instance
+ * @param task Task to cancel.
  */
 int executor_cancel(executor_t *executor, const executor_task_t *task);
 

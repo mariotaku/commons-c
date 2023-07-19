@@ -65,7 +65,7 @@ static int queue_cancel_task(executor_queue_t *queue, const executor_task_t *tas
 
 static void queue_destroy_task(executor_task_t *task);
 
-static int task_identical(executor_task_t *p, const void *fv);
+static int task_comparator(executor_task_t *p, const void *fv);
 
 static executor_task_t *task_create(executor_action_cb action, executor_cleanup_cb finalize, void *arg);
 
@@ -112,8 +112,8 @@ void executor_destroy(executor_t *executor) {
     free(executor);
 }
 
-const executor_task_t *executor_execute(executor_t *executor, executor_action_cb action, executor_cleanup_cb finalize,
-                                        void *arg) {
+const executor_task_t *executor_submit(executor_t *executor, executor_action_cb action, executor_cleanup_cb finalize,
+                                       void *arg) {
     SDL_assert(executor != NULL);
     SDL_assert(action != NULL);
     SDL_LockMutex(executor->lock);
@@ -129,7 +129,7 @@ const executor_task_t *executor_execute(executor_t *executor, executor_action_cb
 
 
 int executor_cancel(executor_t *executor, const executor_task_t *task) {
-    if (executor_is_destroyed(executor) != 0) {
+    if (executor_is_destroyed(executor) != 0 || task == NULL) {
         return -1;
     }
     return queue_cancel_task(&executor->active, task) || queue_cancel_task(&executor->pending, task);
@@ -262,7 +262,7 @@ static int queue_is_task_cancelled(const executor_queue_t *queue, const executor
         return result;
     }
     SDL_LockMutex(queue->lock);
-    executor_task_t *match = tasks_find_by(queue->head, task, task_identical);
+    executor_task_t *match = tasks_find_by(queue->head, task, task_comparator);
     if (match != NULL) {
         result = task_is_cancelled(match);
     }
@@ -272,7 +272,7 @@ static int queue_is_task_cancelled(const executor_queue_t *queue, const executor
 
 static int queue_cancel_task(executor_queue_t *queue, const executor_task_t *task) {
     SDL_LockMutex(queue->lock);
-    executor_task_t *match = tasks_find_by(queue->head, task, task_identical);
+    executor_task_t *match = tasks_find_by(queue->head, task, task_comparator);
     if (match == NULL) {
         SDL_UnlockMutex(queue->lock);
         return 0;
@@ -287,8 +287,8 @@ static void queue_destroy_task(executor_task_t *task) {
     task_destroy(task);
 }
 
-static int task_identical(executor_task_t *p, const void *fv) {
-    return (void *) p == fv;
+static int task_comparator(executor_task_t *p, const void *fv) {
+    return (int) ((void *) p - fv);
 }
 
 executor_task_t *task_create(executor_action_cb action, executor_cleanup_cb finalize, void *arg) {
