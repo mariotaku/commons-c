@@ -1,5 +1,6 @@
 #pragma once
 
+#include <SDL_thread.h>
 #include <SDL_events.h>
 #include <SDL_mouse.h>
 
@@ -25,3 +26,5 @@ void evmouse_close(evmouse_t *mouse);
 void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdata);
 
 void evmouse_interrupt(evmouse_t *mouse);
+
+SDL_bool evmouse_is_interrupted(evmouse_t *mouse);

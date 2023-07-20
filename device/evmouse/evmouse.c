@@ -1,7 +1,5 @@
 #include "evmouse.h"
 
-#include <stdbool.h>
-
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -18,15 +16,15 @@ typedef struct mouse_info_t {
     struct input_id id;
 } mouse_info_t;
 
-typedef bool (*mouse_filter_fn)(const mouse_info_t *info);
+typedef SDL_bool (*mouse_filter_fn)(const mouse_info_t *info);
 
 static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter);
 
-static bool mouse_filter_any(const mouse_info_t *info);
+static SDL_bool mouse_filter_any(const mouse_info_t *info);
 
-static bool is_mouse(int fd, mouse_info_t *info);
+static SDL_bool is_mouse(int fd, mouse_info_t *info);
 
-static inline bool has_bit(const uint8_t *bits, uint32_t bit);
+static inline SDL_bool has_bit(const uint8_t *bits, uint32_t bit);
 
 static void dispatch_motion(const struct input_event *raw, evmouse_listener_t listener, void *userdata);
 
@@ -35,14 +33,16 @@ static void dispatch_wheel(const struct input_event *raw, evmouse_listener_t lis
 static void dispatch_button(const struct input_event *raw, evmouse_listener_t listener, void *userdata);
 
 struct evmouse_t {
+    SDL_mutex *lock;
+    SDL_bool listening;
     int fds[EVMOUSE_MAX_FDS];
     int nfds;
-    bool listening;
 };
 
 evmouse_t *evmouse_open_default() {
     evmouse_t *mouse = malloc(sizeof(evmouse_t));
     memset(mouse, 0, sizeof(evmouse_t));
+    mouse->lock = SDL_CreateMutex();
     mouse->nfds = mouse_fds_find(mouse->fds, EVMOUSE_MAX_FDS, mouse_filter_any);
     if (mouse->nfds <= 0) {
         free(mouse);
@@ -56,12 +56,19 @@ void evmouse_close(evmouse_t *mouse) {
     for (int i = 0; i < mouse->nfds; i++) {
         close(mouse->fds[i]);
     }
+    SDL_DestroyMutex(mouse->lock);
     free(mouse);
 }
 
 void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdata) {
-    mouse->listening = true;
-    while (mouse->listening) {
+    SDL_LockMutex(mouse->lock);
+    if (mouse->listening) {
+        SDL_UnlockMutex(mouse->lock);
+        return;
+    }
+    mouse->listening = SDL_TRUE;
+    SDL_UnlockMutex(mouse->lock);
+    while (evmouse_is_interrupted(mouse)) {
         fd_set fds;
         FD_ZERO(&fds);
         for (int i = 0; i < mouse->nfds; i++) {
@@ -109,7 +116,17 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
 }
 
 void evmouse_interrupt(evmouse_t *mouse) {
-    mouse->listening = false;
+    SDL_LockMutex(mouse->lock);
+    mouse->listening = SDL_FALSE;
+    SDL_UnlockMutex(mouse->lock);
+}
+
+SDL_bool evmouse_is_interrupted(evmouse_t *mouse) {
+    SDL_bool interrupted;
+    SDL_LockMutex(mouse->lock);
+    interrupted = mouse->listening;
+    SDL_UnlockMutex(mouse->lock);
+    return interrupted;
 }
 
 static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter) {
@@ -145,34 +162,34 @@ static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter) {
     return nfds;
 }
 
-static bool is_mouse(int fd, mouse_info_t *info) {
+static SDL_bool is_mouse(int fd, mouse_info_t *info) {
     if (ioctl(fd, EVIOCGID, &info->id) < 0) {
-        return false;
+        return SDL_FALSE;
     }
 
     uint8_t keycaps[(KEY_MAX / 8) + 1];
     uint8_t relcaps[(REL_MAX / 8) + 1];
 
     if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keycaps)), keycaps) < 0) {
-        return false;
+        return SDL_FALSE;
     }
 
     if (ioctl(fd, EVIOCGBIT(EV_REL, sizeof(relcaps)), relcaps) < 0) {
-        return false;
+        return SDL_FALSE;
     }
     if (has_bit(keycaps, BTN_MOUSE) && has_bit(relcaps, REL_X) && has_bit(relcaps, REL_Y)) {
-        return true;
+        return SDL_TRUE;
     }
 
-    return false;
+    return SDL_FALSE;
 }
 
-static bool mouse_filter_any(const mouse_info_t *info) {
+static SDL_bool mouse_filter_any(const mouse_info_t *info) {
     (void) info;
-    return true;
+    return SDL_TRUE;
 }
 
-static inline bool has_bit(const uint8_t *bits, uint32_t bit) {
+static inline SDL_bool has_bit(const uint8_t *bits, uint32_t bit) {
     return (bits[bit / 8] & 1 << (bit % 8)) != 0;
 }
 
