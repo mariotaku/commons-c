@@ -44,25 +44,33 @@ static bool log_header(int level, const char *tag) {
     if (!check_level(level, tag)) {
         return false;
     }
+    float time = (float) SDL_GetTicks() / 1000.0f;
+    int taglen = (int) strlen(tag);
+    if (taglen > 16) {
+        taglen = 16;
+    }
+    int msgpad = 17 - taglen;
     switch (level) {
         case COMMONS_LOG_LEVEL_INFO:
-            fprintf(stderr, "[%.03f][%s]\x1b[36m ", (float) SDL_GetTicks() / 1000.0f, tag);
+            fprintf(stderr, "[%08.3f] [%.*s]\x1b[36m%-*sI ", time, taglen, tag, msgpad, " ");
             break;
         case COMMONS_LOG_LEVEL_WARN:
-            fprintf(stderr, "[%.03f][%s]\x1b[33m ", (float) SDL_GetTicks() / 1000.0f, tag);
+            fprintf(stderr, "[%08.3f] [%.*s]\x1b[33m%-*sW ", time, taglen, tag, msgpad, " ");
             break;
         case COMMONS_LOG_LEVEL_ERROR:
-            fprintf(stderr, "[%.03f][%s]\x1b[31m ", (float) SDL_GetTicks() / 1000.0f, tag);
+            fprintf(stderr, "[%08.3f] [%.*s]\x1b[31m%-*sE ", time, taglen, tag, msgpad, " ");
             break;
         case COMMONS_LOG_LEVEL_FATAL:
-            fprintf(stderr, "[%.03f][%s]\x1b[41m ", (float) SDL_GetTicks() / 1000.0f, tag);
+            fprintf(stderr, "[%08.3f] [%.*s]\x1b[41m%-*sF ", time, taglen, tag, msgpad, " ");
             break;
         case COMMONS_LOG_LEVEL_VERBOSE:
-            fprintf(stderr, "[%.03f][%s]\x1b[34m ", (float) SDL_GetTicks() / 1000.0f, tag);
+            fprintf(stderr, "[%08.3f] [%.*s]\x1b[34m%-*sV ", time, taglen, tag, msgpad, " ");
+            break;
+        case COMMONS_LOG_LEVEL_DEBUG:
+            fprintf(stderr, "[%08.3f] [%.*s]%-*sD ", time, taglen, tag, msgpad, " ");
             break;
         default:
-            fprintf(stderr, "[%.03f][%s] ", (float) SDL_GetTicks() / 1000.0f, tag);
-            break;
+            return false;
     }
     return true;
 }
