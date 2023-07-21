@@ -45,7 +45,11 @@ install(TARGETS inih LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} NAMELINK_SKIP)
 
     add_dependencies(ext_inih_target ext_inih)
 
-    install(DIRECTORY ${INSTALL_DIR}/lib/ DESTINATION lib)
+    if (NOT DEFINED CMAKE_INSTALL_LIBDIR)
+        set(CMAKE_INSTALL_LIBDIR lib)
+    endif ()
+
+    install(DIRECTORY ${INSTALL_DIR}/lib/ DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif ()
 
 set(INIH_INCLUDE_DIRS ${INSTALL_DIR}/include)
