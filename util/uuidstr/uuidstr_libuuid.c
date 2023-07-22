@@ -1,6 +1,6 @@
 #include "uuidstr.h"
 
-#include <uuid.h>
+#include <uuid/uuid.h>
 
 bool uuidstr_random(uuidstr_t *dest) {
     uuid_t uuid;
