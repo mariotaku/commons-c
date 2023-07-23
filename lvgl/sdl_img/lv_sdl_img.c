@@ -6,11 +6,11 @@
 #include "draw/sdl/lv_draw_sdl_utils.h"
 #include "draw/sdl/lv_draw_sdl_texture_cache.h"
 
-lv_res_t sdl_img_decoder_info(struct _lv_img_decoder_t *decoder, const void *src, lv_img_header_t *header);
+lv_res_t sdl_img_decoder_info(lv_img_decoder_t *decoder, const void *src, lv_img_header_t *header);
 
-lv_res_t sdl_img_decoder_open(struct _lv_img_decoder_t *decoder, struct _lv_img_decoder_dsc_t *dsc);
+lv_res_t sdl_img_decoder_open(lv_img_decoder_t *decoder, lv_img_decoder_dsc_t *dsc);
 
-void sdl_img_decoder_close(struct _lv_img_decoder_t *decoder, struct _lv_img_decoder_dsc_t *dsc);
+void sdl_img_decoder_close(lv_img_decoder_t *decoder, lv_img_decoder_dsc_t *dsc);
 
 static bool is_sdl_img_src(const void *src);
 
@@ -27,7 +27,7 @@ lv_img_decoder_t *lv_sdl_img_decoder_init(int flags) {
     return decoder;
 }
 
-lv_res_t sdl_img_decoder_info(struct _lv_img_decoder_t *decoder, const void *src, lv_img_header_t *header) {
+lv_res_t sdl_img_decoder_info(lv_img_decoder_t *decoder, const void *src, lv_img_header_t *header) {
     if (!is_sdl_img_src(src)) {
         return LV_RES_INV;
     }
@@ -38,7 +38,7 @@ lv_res_t sdl_img_decoder_info(struct _lv_img_decoder_t *decoder, const void *src
     return LV_RES_OK;
 }
 
-lv_res_t sdl_img_decoder_open(struct _lv_img_decoder_t *decoder, struct _lv_img_decoder_dsc_t *dsc) {
+lv_res_t sdl_img_decoder_open(lv_img_decoder_t *decoder, lv_img_decoder_dsc_t *dsc) {
     if (!is_sdl_img_src(dsc->src)) {
         return LV_RES_INV;
     }
@@ -84,7 +84,7 @@ lv_res_t sdl_img_decoder_open(struct _lv_img_decoder_t *decoder, struct _lv_img_
     return LV_RES_OK;
 }
 
-void sdl_img_decoder_close(struct _lv_img_decoder_t *decoder, struct _lv_img_decoder_dsc_t *dsc) {
+void sdl_img_decoder_close(lv_img_decoder_t *decoder, lv_img_decoder_dsc_t *dsc) {
     if (!is_sdl_img_src(dsc->src)) {
         return;
     }
