@@ -13,7 +13,7 @@ void commons_log_printf(commons_log_level level, const char *tag, const char *fm
     va_end(arg);
 }
 
-void commons_log_hexdump(commons_log_level level, const char *tag, const unsigned char *data, size_t len) {
+void commons_log_hexdump(commons_log_level level, const char *tag, const void *data, size_t len) {
     char line[80];
     static const char hex_table[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
     for (int i = 0; i < len; i += 16) {
@@ -25,8 +25,8 @@ void commons_log_hexdump(commons_log_level level, const char *tag, const unsigne
                 line[offset++] = ' ';
                 line[offset++] = ' ';
             } else {
-                line[offset++] = hex_table[(data[col] >> 4) & 0xF];
-                line[offset++] = hex_table[(data[col]) & 0xF];
+                line[offset++] = hex_table[(((const unsigned char *) data)[col] >> 4) & 0xF];
+                line[offset++] = hex_table[(((const unsigned char *) data)[col]) & 0xF];
             }
             line[offset++] = ' ';
             if (col - i == 7) {
@@ -39,7 +39,7 @@ void commons_log_hexdump(commons_log_level level, const char *tag, const unsigne
             if (col >= len) {
                 line[offset++] = ' ';
             } else {
-                unsigned char ch = data[col];
+                unsigned char ch = ((const unsigned char *) data)[col];
                 line[offset++] = ch >= ' ' && ch <= '~' ? ch : '.';
             }
         }

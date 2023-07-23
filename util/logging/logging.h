@@ -18,7 +18,7 @@ void commons_logging_deinit();
 
 void commons_log_printf(commons_log_level level, const char *tag, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
-void commons_log_hexdump(commons_log_level level, const char *tag, const unsigned char *data, size_t len);
+void commons_log_hexdump(commons_log_level level, const char *tag, const void *data, size_t len);
 
 void commons_log_vprintf(commons_log_level level, const char *tag, const char *fmt, va_list arg);
 
