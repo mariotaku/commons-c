@@ -4,6 +4,8 @@
 #include "../SDL_internal.h"
 #include "SDL_joystick_c.h"
 
+#include <dlfcn.h>
+
 #define SDL_CONTROLLER_PLATFORM_FIELD   "platform:"
 
 #if NEED_POLYFILL(2, 0, 2)
@@ -79,8 +81,16 @@ POLYFILL int SDL_GameControllerAddMappingsFromRW(SDL_RWops *rw, int freerw)
 
 #if NEED_POLYFILL(2, 0, 12)
 
-SDL_GameControllerType SDL_GameControllerGetType(SDL_GameController *gamecontroller)
+POLYFILL SDL_GameControllerType SDL_GameControllerGetType(SDL_GameController *gamecontroller)
 {
+    static SDL_GameControllerType (*orig)(SDL_GameController *) = (void *) SDL_Polyfill_Unresolved;
+    if ((void *) orig == SDL_Polyfill_Unresolved) {
+        orig = dlsym(RTLD_NEXT, __func__);
+    }
+    if (orig != NULL) {
+        return orig(gamecontroller);
+    }
+
     SDL_Joystick *joystick = SDL_GameControllerGetJoystick(gamecontroller);
 
     if (joystick == NULL) {

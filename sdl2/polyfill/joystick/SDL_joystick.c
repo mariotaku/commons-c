@@ -23,6 +23,7 @@
 #include <SDL_joystick.h>
 #include <SDL_gamecontroller.h>
 #include <SDL_endian.h>
+#include <SDL_version.h>
 
 #include "SDL_joystick_c.h"
 
@@ -34,7 +35,7 @@
 
 #if NEED_POLYFILL(2, 26, 0)
 
-#if !SDL_GetJoystickGUIDInfo_DEFINED
+#if !SDL_VERSION_ATLEAST(2, 26, 0)
 void SDL_GetJoystickGUIDInfo(SDL_JoystickGUID guid, Uint16 *vendor, Uint16 *product, Uint16 *version, Uint16 *crc16);
 #endif
 

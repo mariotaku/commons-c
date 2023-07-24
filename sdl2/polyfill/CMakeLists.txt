@@ -12,11 +12,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(SDL2 REQUIRED sdl2)
 
-add_library(commons-sdl2-polyfill STATIC)
-
-string(REPLACE ";" " " CMAKE_REQUIRED_FLAGS "${SDL2_CFLAGS}")
-set(CMAKE_REQUIRED_LIBRARIES "${SDL2_LIBRARIES}")
-check_symbol_exists(SDL_GetJoystickGUIDInfo "SDL_joystick.h" SDL_GetJoystickGUIDInfo_DEFINED)
+add_library(commons-sdl2-polyfill STATIC SDL_polyfill_unresolved.c)
 
 if (NOT DEFINED COMMONS_SDL2_POLYFILL_TARGET)
     set(COMMONS_SDL2_POLYFILL_TARGET "2.0.0")
