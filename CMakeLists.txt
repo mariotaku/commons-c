@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
+# To suppress warnings for ExternalProject DOWNLOAD_EXTRACT_TIMESTAMP
+if (POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif ()
+
 project(commons-c C CXX)
 
 find_package(PkgConfig REQUIRED)

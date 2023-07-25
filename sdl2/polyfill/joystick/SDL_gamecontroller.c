@@ -81,6 +81,7 @@ POLYFILL int SDL_GameControllerAddMappingsFromRW(SDL_RWops *rw, int freerw)
 
 #if NEED_POLYFILL(2, 0, 12)
 
+// line:2663
 POLYFILL SDL_GameControllerType SDL_GameControllerGetType(SDL_GameController *gamecontroller)
 {
     static SDL_GameControllerType (*orig)(SDL_GameController *) = (void *) SDL_Polyfill_Unresolved;
@@ -100,3 +101,56 @@ POLYFILL SDL_GameControllerType SDL_GameControllerGetType(SDL_GameController *ga
 }
 
 #endif // NEED_POLYFILL(2, 0, 12)
+
+#if NEED_POLYFILL(2, 0, 14)
+
+/**
+ * Return whether a game controller has a particular sensor.
+ * @see https://github.com/libsdl-org/SDL/blob/release-2.28.1/src/joystick/SDL_gamecontroller.c#L2473
+ */
+POLYFILL SDL_bool SDL_GameControllerHasSensor(SDL_GameController *gamecontroller, SDL_SensorType type)
+{
+    static SDL_bool (*orig)(SDL_GameController *, SDL_SensorType) = (void *) SDL_Polyfill_Unresolved;
+    if ((void *) orig == SDL_Polyfill_Unresolved) {
+        orig = dlsym(RTLD_NEXT, __func__);
+    }
+    if (orig != NULL) {
+        return orig(gamecontroller, type);
+    }
+    return SDL_FALSE;
+}
+
+/**
+ * Set whether data reporting for a game controller sensor is enabled
+ * @see https://github.com/libsdl-org/SDL/blob/release-2.28.1/src/joystick/SDL_gamecontroller.c#L2498
+ */
+POLYFILL int
+SDL_GameControllerSetSensorEnabled(SDL_GameController *gamecontroller, SDL_SensorType type, SDL_bool enabled)
+{
+    static int (*orig)(SDL_GameController *, SDL_SensorType, SDL_bool) = (void *) SDL_Polyfill_Unresolved;
+    if ((void *) orig == SDL_Polyfill_Unresolved) {
+        orig = dlsym(RTLD_NEXT, __func__);
+    }
+    if (orig != NULL) {
+        return orig(gamecontroller, type, enabled);
+    }
+    return SDL_Unsupported();
+}
+
+/**
+ * Query whether sensor data reporting is enabled for a game controller
+ * @see https://github.com/libsdl-org/SDL/blob/release-2.28.1/src/joystick/SDL_gamecontroller.c#L2547
+ */
+POLYFILL SDL_bool SDL_GameControllerIsSensorEnabled(SDL_GameController *gamecontroller, SDL_SensorType type)
+{
+    static SDL_bool (*orig)(SDL_GameController *, SDL_SensorType) = (void *) SDL_Polyfill_Unresolved;
+    if ((void *) orig == SDL_Polyfill_Unresolved) {
+        orig = dlsym(RTLD_NEXT, __func__);
+    }
+    if (orig != NULL) {
+        return orig(gamecontroller, type);
+    }
+    return SDL_FALSE;
+}
+
+#endif // NEED_POLYFILL(2, 0, 14)
