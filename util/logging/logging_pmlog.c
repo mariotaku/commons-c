@@ -42,7 +42,7 @@ void commons_log_vprintf(commons_log_level level, const char *tag, const char *f
             break;
         case COMMONS_LOG_LEVEL_DEBUG:
         case COMMONS_LOG_LEVEL_VERBOSE:
-            PmLogDebug(context, tag, 0, "[%.03f] %s", ((float) SDL_GetTicks() / 1000.0f), msg);
+            PmLogDebug(context, "[%.03f] %s", ((float) SDL_GetTicks() / 1000.0f), msg);
             break;
     }
     fprintf(output, "[%.03f][%s] %s\n", ((float) SDL_GetTicks() / 1000.0f), tag, msg);
