@@ -61,8 +61,11 @@ SDL_GameControllerType SDL_GetJoystickGameControllerTypeFromVIDPID(Uint16 vendor
 
     } else if ((vendor == USB_VENDOR_AMAZON && product == USB_PRODUCT_AMAZON_LUNA_CONTROLLER) ||
                (vendor == BLUETOOTH_VENDOR_AMAZON && product == BLUETOOTH_PRODUCT_LUNA_CONTROLLER)) {
+#if SDL_VERSION_ATLEAST(2, 0, 16)
         type = SDL_CONTROLLER_TYPE_AMAZON_LUNA;
-
+#else
+        type = SDL_CONTROLLER_TYPE_XBOXONE;
+#endif
     } else if (vendor == USB_VENDOR_GOOGLE && product == USB_PRODUCT_GOOGLE_STADIA_CONTROLLER) {
 #if SDL_VERSION_ATLEAST(2, 0, 16)
         type = SDL_CONTROLLER_TYPE_GOOGLE_STADIA;
