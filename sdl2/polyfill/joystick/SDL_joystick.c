@@ -67,31 +67,48 @@ SDL_GameControllerType SDL_GetJoystickGameControllerTypeFromVIDPID(Uint16 vendor
         type = SDL_CONTROLLER_TYPE_GOOGLE_STADIA;
 
     } else if (vendor == USB_VENDOR_NINTENDO && product == USB_PRODUCT_NINTENDO_SWITCH_JOYCON_LEFT) {
+#if SDL_VERSION_ATLEAST(2, 24, 0)
         type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_LEFT;
-
+#else
+        type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO;
+#endif
     } else if (vendor == USB_VENDOR_NINTENDO && product == USB_PRODUCT_NINTENDO_SWITCH_JOYCON_RIGHT) {
         if (name && SDL_strstr(name, "NES Controller") != NULL) {
             /* We don't have a type for the Nintendo Online NES Controller */
             type = SDL_CONTROLLER_TYPE_UNKNOWN;
         } else {
+#if SDL_VERSION_ATLEAST(2, 24, 0)
             type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT;
+#else
+            type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO;
+#endif
         }
 
     } else if (vendor == USB_VENDOR_NINTENDO && product == USB_PRODUCT_NINTENDO_SWITCH_JOYCON_GRIP) {
+#if SDL_VERSION_ATLEAST(2, 24, 0)
         if (name && SDL_strstr(name, "(L)") != NULL) {
             type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_LEFT;
         } else {
             type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT;
         }
+#else
+        type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO;
+#endif
 
     } else if (vendor == USB_VENDOR_NINTENDO && product == USB_PRODUCT_NINTENDO_SWITCH_JOYCON_PAIR) {
+#if SDL_VERSION_ATLEAST(2, 24, 0)
         type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_PAIR;
-
+#else
+        type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO;
+#endif
     } else if (vendor == USB_VENDOR_NVIDIA &&
                (product == USB_PRODUCT_NVIDIA_SHIELD_CONTROLLER_V103 ||
                 product == USB_PRODUCT_NVIDIA_SHIELD_CONTROLLER_V104)) {
+#if SDL_VERSION_ATLEAST(2,24,0)
         type = SDL_CONTROLLER_TYPE_NVIDIA_SHIELD;
-
+#else
+        type = SDL_CONTROLLER_TYPE_XBOXONE;
+#endif
     } else {
         switch (GuessControllerType(vendor, product)) {
             case k_eControllerType_XBox360Controller:
