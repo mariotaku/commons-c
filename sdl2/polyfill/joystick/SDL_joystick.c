@@ -64,8 +64,11 @@ SDL_GameControllerType SDL_GetJoystickGameControllerTypeFromVIDPID(Uint16 vendor
         type = SDL_CONTROLLER_TYPE_AMAZON_LUNA;
 
     } else if (vendor == USB_VENDOR_GOOGLE && product == USB_PRODUCT_GOOGLE_STADIA_CONTROLLER) {
+#if SDL_VERSION_ATLEAST(2, 0, 16)
         type = SDL_CONTROLLER_TYPE_GOOGLE_STADIA;
-
+#else
+        type = SDL_CONTROLLER_TYPE_PS5;
+#endif
     } else if (vendor == USB_VENDOR_NINTENDO && product == USB_PRODUCT_NINTENDO_SWITCH_JOYCON_LEFT) {
 #if SDL_VERSION_ATLEAST(2, 24, 0)
         type = SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_LEFT;
