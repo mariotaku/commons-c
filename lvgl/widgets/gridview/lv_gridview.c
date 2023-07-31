@@ -190,6 +190,12 @@ void lv_gridview_set_data_advanced(lv_obj_t *obj, void *data, const lv_gridview_
 
     grid->data = data;
     bool count_changed = false;
+
+    if (changes == NULL || num_changes == 0) {
+        // Scrap all views
+        fill_rows(grid, 0, -1);
+    }
+
     if (data) {
         int item_count = adapter.item_count(obj, data);
         count_changed = grid->item_count != item_count;
@@ -540,9 +546,6 @@ static void update_grid(lv_grid_t *grid) {
     int expect_item_count = grid->old_item_count;
     if (grid->num_changes <= 0) {
         expect_item_count = grid->item_count;
-        for (int del_pos = render_item_start; del_pos < max_item_end; del_pos++) {
-            grid_recycle_item(grid, del_pos, true);
-        }
     }
 
     for (int change_index = 0; change_index < grid->num_changes; change_index++) {
