@@ -191,7 +191,7 @@ void lv_gridview_set_data_advanced(lv_obj_t *obj, void *data, const lv_gridview_
     grid->data = data;
     bool count_changed = false;
 
-    if (changes == NULL || num_changes == 0) {
+    if (changes == NULL || num_changes < 0) {
         // Scrap all views
         fill_rows(grid, 0, -1);
     }
