@@ -629,7 +629,8 @@ static bool grid_recycle_item(lv_grid_t *grid, int position, bool optional) {
     if (optional && item == NULL) {
         return false;
     }
-    LV_ASSERT_MSG(item, "should not recycle invalid item");
+    LV_ASSERT_MSG(item != NULL, "should not recycle invalid item");
+    lv_event_send(item, LV_EVENT_DEFOCUSED, lv_indev_get_act());
     lv_obj_add_flag(item, LV_OBJ_FLAG_HIDDEN);
     view_pool_put(&grid->pool_free, -1, item);
     return true;
