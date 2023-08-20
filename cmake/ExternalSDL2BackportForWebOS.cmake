@@ -15,11 +15,17 @@ endif ()
 
 set(LIB_FILENAME "libSDL2-2.0.so.0")
 
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(EXT_SDL2_BACKPORT_BUILD_TYPE "Release")
+else()
+    set(EXT_SDL2_BACKPORT_BUILD_TYPE "DebugWithRelInfo")
+endif()
+
 ExternalProject_Add(ext_sdl2_backport
         GIT_REPOSITORY https://github.com/mariotaku/SDL-webOS.git
         GIT_TAG webOS-2.28.x
         CMAKE_ARGS ${EXT_SDL2_BACKPORT_TOOLCHAIN_ARGS}
-        -DCMAKE_BUILD_TYPE:string=Release
+        -DCMAKE_BUILD_TYPE:string=${EXT_SDL2_BACKPORT_BUILD_TYPE}
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DWEBOS=ON -DSDL_OFFSCREEN=OFF -DSDL_DELEGATEVIDEO=ON -DSDL_DISKAUDIO=OFF
         -DSDL_DUMMYAUDIO=OFF -DSDL_DUMMYVIDEO=OFF
@@ -43,4 +49,4 @@ endif ()
 
 install(DIRECTORY ${INSTALL_DIR}/lib/ DESTINATION ${CMAKE_INSTALL_LIBDIR}
         PATTERN "include" EXCLUDE PATTERN "bin" EXCLUDE PATTERN "share" EXCLUDE
-        PATTERN "pkgconfig" EXCLUDE PATTERN "*.a" EXCLUDE)
+        PATTERN "pkgconfig" EXCLUDE PATTERN "cmake" EXCLUDE PATTERN "*.a" EXCLUDE)
