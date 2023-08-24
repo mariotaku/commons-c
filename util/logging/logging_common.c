@@ -1,12 +1,14 @@
 #include "logging.h"
 
-#include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
 
-static void app_lv_log_line(const char *line, size_t len);
+static int check_level(int level, const char *tag);
 
 void commons_log_printf(commons_log_level level, const char *tag, const char *fmt, ...) {
+    if (!check_level(level, tag)) {
+        return;
+    }
     va_list arg;
     va_start(arg, fmt);
     commons_log_vprintf(level, tag, fmt, arg);
@@ -14,6 +16,9 @@ void commons_log_printf(commons_log_level level, const char *tag, const char *fm
 }
 
 void commons_log_hexdump(commons_log_level level, const char *tag, const void *data, size_t len) {
+    if (!check_level(level, tag)) {
+        return;
+    }
     char line[80];
     static const char hex_table[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
     for (int i = 0; i < len; i += 16) {
@@ -49,9 +54,7 @@ void commons_log_hexdump(commons_log_level level, const char *tag, const void *d
     }
 }
 
-#ifdef COMMONS_LOGGING_SS4S
-#endif
-
-
-#ifdef COMMONS_LOGGING_LVGL
-#endif
+static int check_level(int level, const char *tag) {
+    (void) tag;
+    return level < COMMONS_LOG_LEVEL_VERBOSE;
+}

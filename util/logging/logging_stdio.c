@@ -41,9 +41,6 @@ void commons_log_vprintf(commons_log_level level, const char *tag, const char *f
 }
 
 static bool log_header(int level, const char *tag) {
-    if (!check_level(level, tag)) {
-        return false;
-    }
     float time = (float) SDL_GetTicks() / 1000.0f;
     int taglen = (int) strlen(tag);
     if (taglen > 16) {
@@ -73,8 +70,4 @@ static bool log_header(int level, const char *tag) {
             return false;
     }
     return true;
-}
-
-static bool check_level(int level, const char *tag) {
-    return level < COMMONS_LOG_LEVEL_VERBOSE;
 }
