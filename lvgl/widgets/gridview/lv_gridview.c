@@ -69,6 +69,8 @@ static void update_row_count(lv_grid_t *grid, int row_count);
 
 static void scroll_cb(lv_event_t *event);
 
+static void clear_rows(lv_grid_t *grid);
+
 static void fill_rows(lv_grid_t *grid, int row_start, int row_end);
 
 static void update_grid(lv_grid_t *grid);
@@ -152,7 +154,7 @@ void lv_gridview_set_config(lv_obj_t *obj, int col_count, lv_coord_t row_height,
     bool column_count_changed = grid->column_count != col_count;
     if (column_count_changed) {
         // Scrap all views
-        fill_rows(grid, 0, -1);
+        clear_rows(grid);
     }
     grid->column_count = col_count;
     grid->row_height = row_height;
@@ -193,7 +195,7 @@ void lv_gridview_set_data_advanced(lv_obj_t *obj, void *data, const lv_gridview_
 
     if (changes == NULL || num_changes < 0) {
         // Scrap all views
-        fill_rows(grid, 0, -1);
+        clear_rows(grid);
     }
 
     if (data) {
@@ -581,7 +583,20 @@ static void update_grid(lv_grid_t *grid) {
     fill_rows(grid, render_row_start, render_row_end);
 }
 
+static void clear_rows(lv_grid_t *grid) {
+    for (int row_idx = LV_MAX(0, grid->row_start); row_idx < grid->row_end; row_idx++) {
+        for (int col_idx = 0; col_idx < grid->column_count; col_idx++) {
+            int position = row_idx * grid->column_count + col_idx;
+            if (position >= grid->item_count) continue;
+            grid_recycle_item(grid, position, true);
+        }
+    }
+}
+
 static void fill_rows(lv_grid_t *grid, int row_start, int row_end) {
+    if (row_start < 0 || row_end < 0 || row_end < row_start) {
+        return;
+    }
     // Mark unused ranges (top + bottom)
     int old_start = grid->row_start, old_end = grid->row_end;
     // Put excess items to recycler
@@ -599,9 +614,6 @@ static void fill_rows(lv_grid_t *grid, int row_start, int row_end) {
             grid_recycle_item(grid, position, false);
         }
     }
-    if (row_start < 0 || row_end < row_start) {
-        return;
-    }
     // Refresh
     for (int row_idx = row_start; row_idx <= row_end; row_idx++) {
         for (int col_idx = 0; col_idx < grid->column_count; col_idx++) {
@@ -611,8 +623,8 @@ static void fill_rows(lv_grid_t *grid, int row_start, int row_end) {
             lv_obj_t *item = grid_obtain_item(grid, position, &created);
             if (created) {
                 lv_obj_set_grid_cell(item, grid->column_align, col_idx, 1, grid->row_align, row_idx, 1);
-                grid->adapter.bind_view(&grid->obj, item, grid->data, position);
             }
+            grid->adapter.bind_view(&grid->obj, item, grid->data, position);
         }
     }
     grid->row_start = row_start;
