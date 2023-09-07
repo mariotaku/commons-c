@@ -18,7 +18,7 @@ set(LIB_FILENAME "libSDL2-2.0.so.0")
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
     set(EXT_SDL2_BACKPORT_BUILD_TYPE "Release")
 else()
-    set(EXT_SDL2_BACKPORT_BUILD_TYPE "DebugWithRelInfo")
+    set(EXT_SDL2_BACKPORT_BUILD_TYPE "RelWithDebInfo")
 endif()
 
 ExternalProject_Add(ext_sdl2_backport
