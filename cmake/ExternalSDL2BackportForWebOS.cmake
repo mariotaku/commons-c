@@ -26,7 +26,7 @@ if(NOT DEFINED SDL2_BACKPORT_REVISION)
 endif ()
 
 ExternalProject_Add(ext_sdl2_backport
-        GIT_REPOSITORY https://github.com/mariotaku/SDL-webOS.git
+        GIT_REPOSITORY "https://github.com/webosbrew/SDL-webOS.git"
         GIT_TAG "${SDL2_BACKPORT_REVISION}"
         CMAKE_ARGS ${EXT_SDL2_BACKPORT_TOOLCHAIN_ARGS}
         -DCMAKE_BUILD_TYPE:string=${EXT_SDL2_BACKPORT_BUILD_TYPE}
