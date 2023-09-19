@@ -21,9 +21,13 @@ else()
     set(EXT_SDL2_BACKPORT_BUILD_TYPE "RelWithDebInfo")
 endif()
 
+if(NOT DEFINED SDL2_BACKPORT_REVISION)
+    set(SDL2_BACKPORT_REVISION "webOS-2.28.x")
+endif ()
+
 ExternalProject_Add(ext_sdl2_backport
         GIT_REPOSITORY https://github.com/mariotaku/SDL-webOS.git
-        GIT_TAG webOS-2.28.x
+        GIT_TAG "${SDL2_BACKPORT_REVISION}"
         CMAKE_ARGS ${EXT_SDL2_BACKPORT_TOOLCHAIN_ARGS}
         -DCMAKE_BUILD_TYPE:string=${EXT_SDL2_BACKPORT_BUILD_TYPE}
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
@@ -43,7 +47,6 @@ add_dependencies(ext_sdl2_backport_target ext_sdl2_backport)
 set(SDL2_INCLUDE_DIRS ${INSTALL_DIR}/include/SDL2)
 set(SDL2_LIBRARIES ext_sdl2_backport_target)
 set(SDL2_FOUND TRUE)
-set(SDL2_VERSION 2.28.3)
 
 if (NOT DEFINED CMAKE_INSTALL_LIBDIR)
     set(CMAKE_INSTALL_LIBDIR lib)
