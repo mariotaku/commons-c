@@ -7,11 +7,13 @@ include(CheckSymbolExists)
 
 check_symbol_exists(syslog "syslog.h" HAVE_SYSLOG)
 
+option(COMMONS_LOGGING_SYSLOG "Use syslog for logging" OFF)
+
 if (PMLOG_FOUND)
     target_include_directories(commons-logging SYSTEM PRIVATE ${PMLOG_INCLUDE_DIRS})
     target_link_libraries(commons-logging PRIVATE ${PMLOG_LIBRARIES})
     target_sources(commons-logging PRIVATE logging_pmlog.c)
-elseif (HAVE_SYSLOG)
+elseif (HAVE_SYSLOG AND COMMONS_LOGGING_SYSLOG)
     target_sources(commons-logging PRIVATE logging_syslog.c)
 elseif (SDL2_FOUND)
     target_sources(commons-logging PRIVATE logging_stdio.c)
