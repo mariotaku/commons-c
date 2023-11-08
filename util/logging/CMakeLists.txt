@@ -1,6 +1,6 @@
 add_library(commons-logging logging_common.c)
 
-pkg_check_modules(PMLOG PmLogLib)
+pkg_check_modules(PMLOG PmLogLib QUIET)
 pkg_check_modules(SDL2 sdl2)
 
 include(CheckSymbolExists)
