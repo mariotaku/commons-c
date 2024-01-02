@@ -10,6 +10,8 @@
 
 struct sockaddr *sockaddr_new();
 
+struct sockaddr *sockaddr_parse(const char *address) __attribute__((nonnull (1)));
+
 int sockaddr_set_address(struct sockaddr *addr, int family, const void *address);
 
 int sockaddr_address_to_string(struct sockaddr *addr, char *dest, size_t len);
