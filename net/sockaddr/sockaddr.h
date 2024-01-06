@@ -8,14 +8,20 @@
 
 #endif
 
-struct sockaddr *sockaddr_new();
+typedef struct sockaddr sockaddr_t;
 
-struct sockaddr *sockaddr_parse(const char *address) __attribute__((nonnull (1)));
+sockaddr_t *sockaddr_new();
 
-int sockaddr_set_address(struct sockaddr *addr, int family, const void *address);
+sockaddr_t *sockaddr_parse(const char *address) __attribute__((nonnull (1)));
 
-int sockaddr_address_to_string(struct sockaddr *addr, char *dest, size_t len);
+int sockaddr_set_ip(sockaddr_t *addr, int family, const void *ip);
 
-int sockaddr_set_port(struct sockaddr *addr, uint16_t port);
+int sockaddr_set_ip_str(sockaddr_t *addr, int family, const char *ip_str);
 
-uint16_t sockaddr_get_port(struct sockaddr *addr);
+int sockaddr_get_ip_str(const sockaddr_t *addr, char *dest, size_t len);
+
+int sockaddr_set_port(sockaddr_t *addr, uint16_t port);
+
+uint16_t sockaddr_get_port(const sockaddr_t *addr);
+
+int sockaddr_to_string(const sockaddr_t *addr, char *dest, size_t len);

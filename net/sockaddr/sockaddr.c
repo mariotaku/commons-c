@@ -3,12 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 struct sockaddr *sockaddr_new() {
     return calloc(1, sizeof(struct sockaddr_storage));
 }
 
-struct sockaddr *sockaddr_parse(const char *address) {
+sockaddr_t *sockaddr_parse(const char *address) {
     assert(address != NULL);
     char buf[128];
     strncpy(buf, address, 128);
@@ -35,9 +36,8 @@ struct sockaddr *sockaddr_parse(const char *address) {
             port_start = addr_end + 1;
         }
     }
-    struct sockaddr_storage *addr = calloc(1, sizeof(struct sockaddr_storage));
-    addr->ss_family = af;
-    if (inet_pton(af, addr_start, &((struct sockaddr_in *) addr)->sin_addr) != 1) {
+    sockaddr_t *addr = sockaddr_new();
+    if (sockaddr_set_ip_str(addr, af, addr_start)) {
         free(addr);
         return NULL;
     }
@@ -48,23 +48,23 @@ struct sockaddr *sockaddr_parse(const char *address) {
             free(addr);
             return NULL;
         }
-        sockaddr_set_port((struct sockaddr *) addr, port);
+        sockaddr_set_port(addr, port);
     }
-    return (struct sockaddr *) addr;
+    return addr;
 }
 
-int sockaddr_set_address(struct sockaddr *addr, int family, const void *address) {
+int sockaddr_set_ip(sockaddr_t *addr, int family, const void *ip) {
     switch (family) {
         case AF_INET: {
             struct sockaddr_in *addr4 = (struct sockaddr_in *) addr;
             addr4->sin_family = AF_INET;
-            addr4->sin_addr = *(struct in_addr *) address;
+            addr4->sin_addr = *(struct in_addr *) ip;
             return 0;
         }
         case AF_INET6: {
             struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) addr;
             addr6->sin6_family = AF_INET6;
-            addr6->sin6_addr = *(struct in6_addr *) address;
+            addr6->sin6_addr = *(struct in6_addr *) ip;
             return 0;
         }
         default:
@@ -72,14 +72,41 @@ int sockaddr_set_address(struct sockaddr *addr, int family, const void *address)
     }
 }
 
-int sockaddr_address_to_string(struct sockaddr *addr, char *dest, size_t len) {
-    switch (addr->sa_family) {
+int sockaddr_set_ip_str(sockaddr_t *addr, int family, const char *ip_str) {
+    assert(ip_str != NULL);
+    switch (family) {
         case AF_INET: {
             struct sockaddr_in *addr4 = (struct sockaddr_in *) addr;
-            return inet_ntop(AF_INET, &addr4->sin_addr, dest, len) == NULL ? -1 : 0;
+            addr4->sin_family = AF_INET;
+            return inet_pton(AF_INET, ip_str, &addr4->sin_addr) == 1 ? 0 : -1;
         }
         case AF_INET6: {
             struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) addr;
+            addr6->sin6_family = AF_INET6;
+            return inet_pton(AF_INET6, ip_str, &addr6->sin6_addr) == 1 ? 0 : -1;
+        }
+        default:
+            return -1;
+    }
+}
+
+int sockaddr_get_ip_str(const sockaddr_t *addr, char *dest, size_t len) {
+    assert(dest != NULL);
+    assert(len > 0);
+    if (addr == NULL) {
+        if (len < 5) {
+            return -1;
+        }
+        strncpy(dest, "NULL", len);
+        return 0;
+    }
+    switch (addr->sa_family) {
+        case AF_INET: {
+            const struct sockaddr_in *addr4 = (const struct sockaddr_in *) addr;
+            return inet_ntop(AF_INET, &addr4->sin_addr, dest, len) == NULL ? -1 : 0;
+        }
+        case AF_INET6: {
+            const struct sockaddr_in6 *addr6 = (const struct sockaddr_in6 *) addr;
             return inet_ntop(AF_INET6, &addr6->sin6_addr, dest, len) == NULL ? -1 : 0;
         }
         default:
@@ -87,13 +114,39 @@ int sockaddr_address_to_string(struct sockaddr *addr, char *dest, size_t len) {
     }
 }
 
-int sockaddr_set_port(struct sockaddr *addr, uint16_t port) {
+int sockaddr_set_port(sockaddr_t *addr, uint16_t port) {
     struct sockaddr_in *addr4 = (struct sockaddr_in *) addr;
     addr4->sin_port = htons(port);
     return 0;
 }
 
-uint16_t sockaddr_get_port(struct sockaddr *addr) {
-    struct sockaddr_in *addr4 = (struct sockaddr_in *) addr;
+uint16_t sockaddr_get_port(const sockaddr_t *addr) {
+    const struct sockaddr_in *addr4 = (const struct sockaddr_in *) addr;
     return ntohs(addr4->sin_port);
+}
+
+
+int sockaddr_to_string(const sockaddr_t *addr, char *dest, size_t len) {
+    assert(dest != NULL);
+    assert(len > 0);
+    if (addr == NULL) {
+        return sockaddr_get_ip_str(addr, dest, len);
+    }
+    char ip[64];
+    if (sockaddr_get_ip_str(addr, ip, sizeof(ip)) != 0) {
+        return -1;
+    }
+    uint16_t port = sockaddr_get_port(addr);
+    if (addr->sa_family == AF_INET6) {
+        if (port == 0) {
+            snprintf(dest, len, "[%s]", ip);
+        } else {
+            snprintf(dest, len, "[%s]:%d", ip, port);
+        }
+    } else if (port == 0) {
+        snprintf(dest, len, "%s", ip);
+    } else {
+        snprintf(dest, len, "%s:%d", ip, port);
+    }
+    return 0;
 }

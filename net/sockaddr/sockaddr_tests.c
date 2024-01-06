@@ -17,6 +17,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "sockaddr.h"
 
@@ -63,7 +64,28 @@ void test_parse() {
     assert(addr == NULL);
 }
 
+void test_to_string() {
+    struct sockaddr *addr;
+    char buf[64];
+
+    addr = sockaddr_parse("127.0.0.1:80");
+    sockaddr_to_string(addr, buf, 64);
+    assert(strcmp(buf, "127.0.0.1:80") == 0);
+    free(addr);
+
+    addr = sockaddr_parse("127.0.0.1");
+    sockaddr_to_string(addr, buf, 64);
+    assert(strcmp(buf, "127.0.0.1") == 0);
+    free(addr);
+
+    addr = sockaddr_parse("[::1]:80");
+    sockaddr_to_string(addr, buf, 64);
+    assert(strcmp(buf, "[::1]:80") == 0);
+    free(addr);
+}
+
 int main() {
     test_parse();
+    test_to_string();
     return 0;
 }
