@@ -57,6 +57,15 @@ void test_parse() {
     addr = sockaddr_parse("[111]:aaa");
     assert(addr == NULL);
 
+    addr = sockaddr_parse("[111");
+    assert(addr == NULL);
+
+    addr = sockaddr_parse("[111:aaa");
+    assert(addr == NULL);
+
+    addr = sockaddr_parse("[111:aaa::");
+    assert(addr == NULL);
+
     addr = sockaddr_parse("1.1.1.1:aaa");
     assert(addr == NULL);
 

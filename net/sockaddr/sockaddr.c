@@ -19,13 +19,14 @@ sockaddr_t *sockaddr_parse(const char *address) {
         af = AF_INET6;
         addr_start = buf + 1;
         addr_end = strchr(addr_start, ']');
-        if (addr_end != NULL) {
-            *addr_end = '\0';
-            port_start = strchr(addr_end + 1, ':');
-            if (port_start != NULL) {
-                *port_start = '\0';
-                port_start++;
-            }
+        if (addr_end == NULL) {
+            return NULL;
+        }
+        *addr_end = '\0';
+        port_start = strchr(addr_end + 1, ':');
+        if (port_start != NULL) {
+            *port_start = '\0';
+            port_start++;
         }
     } else {
         af = AF_INET;
