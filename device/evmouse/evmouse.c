@@ -89,7 +89,7 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
                 continue;
             }
             switch (raw_ev.type) {
-                case EV_REL:
+                case EV_REL: {
                     switch (raw_ev.code) {
                         case REL_X:
                         case REL_Y:
@@ -101,15 +101,13 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
                             break;
                     }
                     break;
-                case EV_KEY:
-                    switch (raw_ev.code) {
-                        case BTN_LEFT:
-                        case BTN_RIGHT:
-                        case BTN_MIDDLE:
-                            dispatch_button(&raw_ev, listener, userdata);
-                            break;
+                }
+                case EV_KEY: {
+                    if (raw_ev.code >= BTN_LEFT && raw_ev.code <= BTN_TASK) {
+                        dispatch_button(&raw_ev, listener, userdata);
                     }
                     break;
+                }
             }
         }
     }
@@ -153,6 +151,7 @@ static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter) {
         }
         mouse_info_t mouse_info;
         if (is_mouse(fd, &mouse_info) && (!filter || filter(&mouse_info))) {
+            commons_log_debug("EvMouse", "Opened mouse device: %s", dev_path);
             fds[nfds++] = fd;
             continue;
         }
