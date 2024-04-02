@@ -236,6 +236,24 @@ static void dispatch_button(const struct input_event *raw, evmouse_listener_t li
         case BTN_MIDDLE:
             event.button.button = SDL_BUTTON_MIDDLE;
             break;
+        case BTN_SIDE:
+            event.button.button = SDL_BUTTON_X1;
+            break;
+        case BTN_EXTRA:
+            event.button.button = SDL_BUTTON_X2;
+            break;
+        case BTN_FORWARD:
+            event.button.button = SDL_BUTTON_X2 + 1;
+            break;
+        case BTN_BACK:
+            event.button.button = SDL_BUTTON_X2 + 2;
+            break;
+        case BTN_TASK:
+            event.button.button = SDL_BUTTON_X2 + 3;
+            break;
+        default:
+            commons_log_warn("EvMouse", "Unhandled button event: %d", raw->code);
+            return;
     }
     listener(&event, userdata);
 }
