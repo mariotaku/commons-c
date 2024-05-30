@@ -53,15 +53,20 @@ evmouse_t *evmouse_open_default() {
 
 void evmouse_close(evmouse_t *mouse) {
     assert(mouse != NULL);
+    int ret = SDL_LockMutex(mouse->lock);
+    assert(ret == 0);
     for (int i = 0; i < mouse->nfds; i++) {
         close(mouse->fds[i]);
     }
+    SDL_UnlockMutex(mouse->lock);
     SDL_DestroyMutex(mouse->lock);
     free(mouse);
 }
 
 void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdata) {
-    SDL_LockMutex(mouse->lock);
+    if (SDL_LockMutex(mouse->lock) != 0) {
+        return;
+    }
     if (mouse->listening) {
         SDL_UnlockMutex(mouse->lock);
         return;
@@ -114,14 +119,18 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
 }
 
 void evmouse_interrupt(evmouse_t *mouse) {
-    SDL_LockMutex(mouse->lock);
+    if (SDL_LockMutex(mouse->lock) != 0) {
+        return;
+    }
     mouse->listening = SDL_FALSE;
     SDL_UnlockMutex(mouse->lock);
 }
 
 SDL_bool evmouse_is_interrupted(evmouse_t *mouse) {
+    if (SDL_LockMutex(mouse->lock) != 0) {
+        return SDL_FALSE;
+    }
     SDL_bool interrupted;
-    SDL_LockMutex(mouse->lock);
     interrupted = mouse->listening;
     SDL_UnlockMutex(mouse->lock);
     return interrupted;
