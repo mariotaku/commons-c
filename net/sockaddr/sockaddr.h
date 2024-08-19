@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #if __WIN32__
 #include <winsock2.h>
 #else

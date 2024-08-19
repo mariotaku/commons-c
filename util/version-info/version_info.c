@@ -48,7 +48,14 @@ char *version_info_str(const version_info_t *version) {
     } else {
         snprintf(tmp, 64, "%d.%d.%d", version->major, version->minor, version->patch);
     }
-    return strndup(tmp, 64);
+    size_t len = strnlen(tmp, 64);
+    char *result = malloc(len + 1);
+    if (result == NULL) {
+        return NULL;
+    }
+    memcpy(result, tmp, len);
+    result[len] = '\0';
+    return result;
 }
 
 int version_info_compare(const version_info_t *a, const version_info_t *b) {

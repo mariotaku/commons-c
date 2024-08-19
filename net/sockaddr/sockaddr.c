@@ -5,6 +5,11 @@
 #include <assert.h>
 #include <stdio.h>
 
+#if __WIN32__
+#include <ws2ipdef.h>
+#include <ws2tcpip.h>
+#endif
+
 struct sockaddr *sockaddr_new() {
     return calloc(1, sizeof(struct sockaddr_storage));
 }

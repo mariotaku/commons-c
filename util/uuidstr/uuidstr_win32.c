@@ -8,6 +8,7 @@ bool uuidstr_random(uuidstr_t *dest) {
     if (UuidToString(&uuid, &szUuid) != RPC_S_OK) {
         return false;
     }
-    strncpy(dest, (char *) szUuid, sizeof(uuidstr_t));
+    strncpy((char *) dest, (char *) szUuid, sizeof(uuidstr_t));
     RpcStringFree(&szUuid);
+    return true;
 }

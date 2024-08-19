@@ -2,6 +2,8 @@
 
 #include <memory.h>
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 static void ensure_capacity(array_list_t *list, int new_size);
 
@@ -16,6 +18,7 @@ array_list_t *array_list_create(size_t item_size, int initial_capacity) {
 }
 
 void array_list_init(array_list_t *list, size_t item_size, int initial_capacity) {
+    assert(list != NULL);
     list->data = malloc(initial_capacity * item_size);
     list->item_size = item_size;
     list->capacity = initial_capacity;

@@ -2,6 +2,7 @@
 #include "logging.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -9,7 +10,7 @@
 #if __WIN32__
 
 #include <winsock2.h>
-#define INVSOCKET NULL
+#define INVSOCKET ((SOCKET) NULL)
 typedef char SOCKOPT;
 
 #else
