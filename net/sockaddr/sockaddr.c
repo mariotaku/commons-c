@@ -14,6 +14,12 @@ struct sockaddr *sockaddr_new() {
     return calloc(1, sizeof(struct sockaddr_storage));
 }
 
+sockaddr_t *sockaddr_clone(const sockaddr_t *addr) {
+    sockaddr_t *new_addr = sockaddr_new();
+    memcpy(new_addr, addr, sizeof(sockaddr_t));
+    return new_addr;
+}
+
 sockaddr_t *sockaddr_parse(const char *address) {
     assert(address != NULL);
     char buf[128];
@@ -43,6 +49,7 @@ sockaddr_t *sockaddr_parse(const char *address) {
         }
     }
     sockaddr_t *addr = sockaddr_new();
+    assert(addr != NULL);
     if (sockaddr_set_ip_str(addr, af, addr_start)) {
         free(addr);
         return NULL;
@@ -121,6 +128,7 @@ int sockaddr_get_ip_str(const sockaddr_t *addr, char *dest, size_t len) {
 }
 
 int sockaddr_set_port(sockaddr_t *addr, uint16_t port) {
+    assert(addr != NULL);
     struct sockaddr_in *addr4 = (struct sockaddr_in *) addr;
     addr4->sin_port = htons(port);
     return 0;
@@ -155,4 +163,8 @@ int sockaddr_to_string(const sockaddr_t *addr, char *dest, size_t len) {
         snprintf(dest, len, "%s:%d", ip, port);
     }
     return 0;
+}
+
+int sockaddr_compare(const sockaddr_t *a, const sockaddr_t *b) {
+    return memcmp(a, b, sizeof(sockaddr_t));
 }
