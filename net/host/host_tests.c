@@ -20,6 +20,11 @@ void test_host_new() {
     assert(host != NULL);
     assert(strcmp(host_get_hostname(host), "www.google.com") == 0);
     host_free(host);
+
+    host = host_new("192.168.1.1", 442);
+    assert(host != NULL);
+    assert(host_is_ip(host) == 1);
+    host_free(host);
 }
 
 int main() {

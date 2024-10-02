@@ -26,3 +26,5 @@ const char *host_get_hostname(const host_t *host) __attribute__((nonnull (1)));
 uint16_t host_get_port(const host_t *host) __attribute__((nonnull (1)));
 
 int host_to_string(const host_t *host, char *buf, size_t len) __attribute__((nonnull (1, 2)));
+
+int host_is_ip(const host_t *host) __attribute__((nonnull (1)));

@@ -73,6 +73,10 @@ int host_to_string(const host_t *host, char *buf, size_t len) {
     return snprintf(buf, len, "%s:%d", host->hostname, host->port);
 }
 
+int host_is_ip(const host_t *host) {
+    return host->addr != NULL;
+}
+
 const char *find_hostname_end(const char *s) {
     const char *p = s;
     // One segment can have at most 63 characters, and at most 253 characters in total.
