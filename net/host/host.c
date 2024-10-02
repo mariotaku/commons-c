@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 struct host {
     char hostname[254];
@@ -66,6 +67,10 @@ const char *host_get_hostname(const host_t *host) {
 
 uint16_t host_get_port(const host_t *host) {
     return host->port;
+}
+
+int host_to_string(const host_t *host, char *buf, size_t len) {
+    return snprintf(buf, len, "%s:%d", host->hostname, host->port);
 }
 
 const char *find_hostname_end(const char *s) {
