@@ -1,3 +1,3 @@
 add_subdirectory(sockaddr)
-add_subdirectory(host)
+add_subdirectory(hostport)
 add_subdirectory(wol)

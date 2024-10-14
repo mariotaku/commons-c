@@ -2,7 +2,7 @@
 
 #include "sockaddr.h"
 
-typedef struct host host_t;
+typedef struct hostport host_t;
 
 /**
  * Create a new host.

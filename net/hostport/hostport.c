@@ -1,11 +1,11 @@
-#include "host.h"
+#include "hostport.h"
 
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 
-struct host {
+struct hostport {
     char hostname[254];
     uint16_t port;
     sockaddr_t *addr;

@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "host.h"
+#include "hostport.h"
 
 void test_host_parse() {
     host_t *host;
