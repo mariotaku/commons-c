@@ -13,8 +13,8 @@ struct hostport {
 
 static const char *find_hostname_end(const char *s);
 
-host_t *host_new(const char *hostname, uint16_t port) {
-    host_t *host = host_parse(hostname);
+hostport_t *hostport_new(const char *hostname, uint16_t port) {
+    hostport_t *host = hostport_parse(hostname);
     if (host == NULL) {
         return NULL;
     }
@@ -22,10 +22,10 @@ host_t *host_new(const char *hostname, uint16_t port) {
     return host;
 }
 
-host_t *host_parse(const char *s) {
+hostport_t *hostport_parse(const char *s) {
     sockaddr_t *parse = sockaddr_parse(s);
     if (parse != NULL) {
-        host_t *host = calloc(1, sizeof(host_t));
+        hostport_t *host = calloc(1, sizeof(hostport_t));
         strncpy(host->hostname, s, 254);
         host->port = sockaddr_get_port(parse);
         sockaddr_get_ip_str(parse, host->hostname, 253);
@@ -48,32 +48,32 @@ host_t *host_parse(const char *s) {
         // Invalid character
         return NULL;
     }
-    host_t *host = calloc(1, sizeof(host_t));
+    hostport_t *host = calloc(1, sizeof(hostport_t));
     strncpy(host->hostname, s, end - s);
     host->port = port;
     return host;
 }
 
-void host_free(host_t *host) {
+void hostport_free(hostport_t *host) {
     if (host->addr != NULL) {
         sockaddr_free(host->addr);
     }
     free(host);
 }
 
-const char *host_get_hostname(const host_t *host) {
+const char *hostport_get_hostname(const hostport_t *host) {
     return host->hostname;
 }
 
-uint16_t host_get_port(const host_t *host) {
+uint16_t hostport_get_port(const hostport_t *host) {
     return host->port;
 }
 
-int host_to_string(const host_t *host, char *buf, size_t len) {
+int hostport_to_string(const hostport_t *host, char *buf, size_t len) {
     return snprintf(buf, len, "%s:%d", host->hostname, host->port);
 }
 
-int host_is_ip(const host_t *host) {
+int hostport_is_ip(const hostport_t *host) {
     return host->addr != NULL;
 }
 

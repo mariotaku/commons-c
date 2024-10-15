@@ -2,7 +2,7 @@
 
 #include "sockaddr.h"
 
-typedef struct hostport host_t;
+typedef struct hostport hostport_t;
 
 /**
  * Create a new host.
@@ -10,21 +10,21 @@ typedef struct hostport host_t;
  * @param port Port.
  * @return New host. NULL if the hostname isn't valid.
  */
-host_t *host_new(const char *hostname, uint16_t port) __attribute__((nonnull (1)));
+hostport_t *hostport_new(const char *hostname, uint16_t port) __attribute__((nonnull (1)));
 
 /**
  * Parse a host string.
  * @param s Host string. Format: hostname[:port]
  * @return Parsed host or NULL if the string is invalid.
  */
-host_t *host_parse(const char *s) __attribute__((nonnull (1)));
+hostport_t *hostport_parse(const char *s) __attribute__((nonnull (1)));
 
-void host_free(host_t *host) __attribute__((nonnull (1)));
+void hostport_free(hostport_t *host) __attribute__((nonnull (1)));
 
-const char *host_get_hostname(const host_t *host) __attribute__((nonnull (1)));
+const char *hostport_get_hostname(const hostport_t *host) __attribute__((nonnull (1)));
 
-uint16_t host_get_port(const host_t *host) __attribute__((nonnull (1)));
+uint16_t hostport_get_port(const hostport_t *host) __attribute__((nonnull (1)));
 
-int host_to_string(const host_t *host, char *buf, size_t len) __attribute__((nonnull (1, 2)));
+int hostport_to_string(const hostport_t *host, char *buf, size_t len) __attribute__((nonnull (1, 2)));
 
-int host_is_ip(const host_t *host) __attribute__((nonnull (1)));
+int hostport_is_ip(const hostport_t *host) __attribute__((nonnull (1)));
