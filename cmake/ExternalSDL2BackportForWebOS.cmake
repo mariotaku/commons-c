@@ -15,27 +15,38 @@ endif ()
 
 set(LIB_FILENAME "libSDL2-2.0.so.0")
 
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(EXT_SDL2_BACKPORT_BUILD_TYPE "Release")
-else()
-    set(EXT_SDL2_BACKPORT_BUILD_TYPE "RelWithDebInfo")
-endif()
+if (DEFINED SDL2_BACKPORT_RELEASE)
+    string(REGEX REPLACE "^release-([0-9]+\.[0-9]+\.[0-9]+)-webos\\.[0-9]+$" "SDL2-\\1-webos.tar.gz"
+            _archive "${SDL2_BACKPORT_RELEASE}")
+    ExternalProject_Add(ext_sdl2_backport
+            URL "https://github.com/webosbrew/SDL-webOS/releases/download/${SDL2_BACKPORT_RELEASE}/${_archive}"
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> <INSTALL_DIR>
+            BUILD_BYPRODUCTS <INSTALL_DIR>/lib/${LIB_FILENAME}
+    )
+elseif (DEFINED SDL2_BACKPORT_REVISION)
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(EXT_SDL2_BACKPORT_BUILD_TYPE "Release")
+    else ()
+        set(EXT_SDL2_BACKPORT_BUILD_TYPE "RelWithDebInfo")
+    endif ()
 
-if(NOT DEFINED SDL2_BACKPORT_REVISION)
-    set(SDL2_BACKPORT_REVISION "webOS-2.28.x")
+    ExternalProject_Add(ext_sdl2_backport
+            GIT_REPOSITORY "https://github.com/webosbrew/SDL-webOS.git"
+            GIT_TAG "${SDL2_BACKPORT_REVISION}"
+            CMAKE_ARGS ${EXT_SDL2_BACKPORT_TOOLCHAIN_ARGS}
+            -DCMAKE_BUILD_TYPE:string=${EXT_SDL2_BACKPORT_BUILD_TYPE}
+            -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+            -DWEBOS=ON -DSDL_OFFSCREEN=OFF -DSDL_DISKAUDIO=OFF
+            -DSDL_DUMMYAUDIO=OFF -DSDL_DUMMYVIDEO=OFF -DSDL_KMSDRM=OFF
+            -DSDL_VENDOR_INFO=webOS\ Backport
+            BUILD_BYPRODUCTS <INSTALL_DIR>/lib/${LIB_FILENAME}
+    )
+else ()
+    message(FATAL_ERROR "SDL2_BACKPORT_REVISION is not defined")
 endif ()
 
-ExternalProject_Add(ext_sdl2_backport
-        GIT_REPOSITORY "https://github.com/webosbrew/SDL-webOS.git"
-        GIT_TAG "${SDL2_BACKPORT_REVISION}"
-        CMAKE_ARGS ${EXT_SDL2_BACKPORT_TOOLCHAIN_ARGS}
-        -DCMAKE_BUILD_TYPE:string=${EXT_SDL2_BACKPORT_BUILD_TYPE}
-        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-        -DWEBOS=ON -DSDL_OFFSCREEN=OFF -DSDL_DISKAUDIO=OFF
-        -DSDL_DUMMYAUDIO=OFF -DSDL_DUMMYVIDEO=OFF -DSDL_KMSDRM=OFF
-        -DSDL_VENDOR_INFO=webOS\ Backport
-        BUILD_BYPRODUCTS <INSTALL_DIR>/lib/${LIB_FILENAME}
-)
 ExternalProject_Get_Property(ext_sdl2_backport INSTALL_DIR)
 
 add_library(ext_sdl2_backport_target SHARED IMPORTED)
