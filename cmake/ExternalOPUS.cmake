@@ -1,3 +1,8 @@
+# To suppress warnings for ExternalProject DOWNLOAD_EXTRACT_TIMESTAMP
+if (POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif ()
+
 include(ExternalProject)
 
 set(OPUS_DISABLE_INTRINSICS OFF)
