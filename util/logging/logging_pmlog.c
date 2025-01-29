@@ -26,27 +26,32 @@ void commons_log_vprintf(commons_log_level level, const char *tag, const char *f
     FILE *output = stdout;
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    float timestamp = (float) (ts.tv_sec - ts_init.tv_sec) + (float) (ts.tv_nsec - ts_init.tv_nsec) / 1000000000.0f;
+    ts.tv_sec -= ts_init.tv_sec;
+    ts.tv_nsec -= ts_init.tv_nsec;
+    if (ts.tv_nsec < 0) {
+        ts.tv_sec--;
+        ts.tv_nsec += 1000000000;
+    }
     switch (level) {
         case COMMONS_LOG_LEVEL_FATAL:
             output = stderr;
-            PmLogCritical(context, tag, 0, "[%.03f] %s", timestamp, msg);
+            PmLogCritical(context, tag, 0, "[%ld.%03ld] %s", ts.tv_sec, ts.tv_nsec / 1000000, msg);
             break;
         case COMMONS_LOG_LEVEL_ERROR:
             output = stderr;
-            PmLogError(context, tag, 0, "[%.03f] %s", timestamp, msg);
+            PmLogError(context, tag, 0, "[%ld.%03ld] %s", ts.tv_sec, ts.tv_nsec / 1000000, msg);
             break;
         case COMMONS_LOG_LEVEL_WARN:
             output = stderr;
-            PmLogWarning(context, tag, 0, "[%.03f] %s", timestamp, msg);
+            PmLogWarning(context, tag, 0, "[%ld.%03ld] %s", ts.tv_sec, ts.tv_nsec / 1000000, msg);
             break;
         case COMMONS_LOG_LEVEL_INFO:
-            PmLogInfo(context, tag, 0, "[%.03f] %s", timestamp, msg);
+            PmLogInfo(context, tag, 0, "[%ld.%03ld] %s", ts.tv_sec, ts.tv_nsec / 1000000, msg);
             break;
         case COMMONS_LOG_LEVEL_DEBUG:
         case COMMONS_LOG_LEVEL_VERBOSE:
-            PmLogDebug(context, "[%.03f] %s", timestamp, msg);
+            PmLogDebug(context, "[%ld.%03ld] %s", ts.tv_sec, ts.tv_nsec / 1000000, msg);
             break;
     }
-    fprintf(output, "[%.03f][%s] %s\n", timestamp, tag, msg);
+    fprintf(output, "[%ld.%03ld][%s] %s\n", ts.tv_sec, ts.tv_nsec / 1000000, tag, msg);
 }
