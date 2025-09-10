@@ -16,11 +16,23 @@ typedef struct mouse_info_t {
     struct input_id id;
 } mouse_info_t;
 
-typedef SDL_bool (*mouse_filter_fn)(const mouse_info_t *info);
+typedef SDL_bool (*mouse_filter_fn)(const mouse_info_t *info, SDL_bool *grab);
 
-static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter);
+typedef struct dev_fd_t {
+    int fd;
+    SDL_bool grab;
+} dev_fd_t;
 
-static SDL_bool mouse_filter_any(const mouse_info_t *info);
+struct evmouse_t {
+    SDL_mutex *lock;
+    SDL_bool listening;
+    dev_fd_t fds[EVMOUSE_MAX_FDS];
+    int nfds;
+};
+
+static int mouse_fds_find(dev_fd_t *fds, mouse_filter_fn filter);
+
+static SDL_bool mouse_filter_any(const mouse_info_t *info, SDL_bool *grab);
 
 static SDL_bool is_mouse(int fd, mouse_info_t *info);
 
@@ -32,18 +44,12 @@ static void dispatch_wheel(const struct input_event *raw, evmouse_listener_t lis
 
 static void dispatch_button(const struct input_event *raw, evmouse_listener_t listener, void *userdata);
 
-struct evmouse_t {
-    SDL_mutex *lock;
-    SDL_bool listening;
-    int fds[EVMOUSE_MAX_FDS];
-    int nfds;
-};
 
 evmouse_t *evmouse_open_default() {
     evmouse_t *mouse = malloc(sizeof(evmouse_t));
     memset(mouse, 0, sizeof(evmouse_t));
     mouse->lock = SDL_CreateMutex();
-    mouse->nfds = mouse_fds_find(mouse->fds, EVMOUSE_MAX_FDS, mouse_filter_any);
+    mouse->nfds = mouse_fds_find(mouse->fds, mouse_filter_any);
     if (mouse->nfds <= 0) {
         free(mouse);
         return NULL;
@@ -56,7 +62,13 @@ void evmouse_close(evmouse_t *mouse) {
     int ret = SDL_LockMutex(mouse->lock);
     assert(ret == 0);
     for (int i = 0; i < mouse->nfds; i++) {
-        close(mouse->fds[i]);
+        if (mouse->fds[i].grab) {
+            if (ioctl(mouse->fds[i].fd, EVIOCGRAB, 0) < 0) {
+                commons_log_warn("EvMouse", "Failed to ungrab fd %d: %d (%s)", mouse->fds[i].fd, errno,
+                                 strerror(errno));
+            }
+        }
+        close(mouse->fds[i].fd);
     }
     SDL_UnlockMutex(mouse->lock);
     SDL_DestroyMutex(mouse->lock);
@@ -77,7 +89,7 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
         fd_set fds;
         FD_ZERO(&fds);
         for (int i = 0; i < mouse->nfds; i++) {
-            FD_SET(mouse->fds[i], &fds);
+            FD_SET(mouse->fds[i].fd, &fds);
         }
         struct timeval timeout = {.tv_sec = 0, .tv_usec = 1000};
         if (select(FD_SETSIZE, &fds, NULL, NULL, &timeout) <= 0) {
@@ -85,7 +97,7 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
         }
 
         for (int i = 0; i < mouse->nfds; i++) {
-            int fd = mouse->fds[i];
+            int fd = mouse->fds[i].fd;
             if (!FD_ISSET(fd, &fds)) {
                 continue;
             }
@@ -136,7 +148,7 @@ SDL_bool evmouse_is_interrupted(evmouse_t *mouse) {
     return interrupted;
 }
 
-static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter) {
+static int mouse_fds_find(dev_fd_t *fds, mouse_filter_fn filter) {
     DIR *dir = opendir("/dev/input");
     if (dir == NULL) {
         return 0;
@@ -144,7 +156,7 @@ static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter) {
     struct dirent *ent;
     char dev_path[32] = "/dev/input/";
     int nfds = 0;
-    while (nfds < max && (ent = readdir(dir))) {
+    while (nfds < EVMOUSE_MAX_FDS && (ent = readdir(dir))) {
         if (strncmp(ent->d_name, "event", 5) != 0) {
             continue;
         }
@@ -159,9 +171,16 @@ static int mouse_fds_find(int *fds, int max, mouse_filter_fn filter) {
             continue;
         }
         mouse_info_t mouse_info;
-        if (is_mouse(fd, &mouse_info) && (!filter || filter(&mouse_info))) {
+        if (is_mouse(fd, &mouse_info) && (!filter || filter(&mouse_info, &fds[nfds].grab))) {
             commons_log_debug("EvMouse", "Opened mouse device: %s", dev_path);
-            fds[nfds++] = fd;
+            fds[nfds].fd = fd;
+            if (fds[nfds].grab) {
+                if (ioctl(fd, EVIOCGRAB, 1) < 0) {
+                    commons_log_warn("EvMouse", "Failed to grab %s: %d (%s)", dev_path, errno, strerror(errno));
+                    fds[nfds].grab = SDL_FALSE;
+                }
+            }
+            nfds++;
             continue;
         }
         close(fd);
@@ -192,8 +211,9 @@ static SDL_bool is_mouse(int fd, mouse_info_t *info) {
     return SDL_FALSE;
 }
 
-static SDL_bool mouse_filter_any(const mouse_info_t *info) {
+static SDL_bool mouse_filter_any(const mouse_info_t *info, SDL_bool *grab) {
     (void) info;
+    *grab = SDL_TRUE;
     return SDL_TRUE;
 }
 
@@ -229,10 +249,10 @@ static void dispatch_wheel(const struct input_event *raw, evmouse_listener_t lis
 
 static void dispatch_button(const struct input_event *raw, evmouse_listener_t listener, void *userdata) {
     evmouse_event_t event = {
-            .button = {
-                    .type=raw->value ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP,
-                    .state = raw->value ? SDL_PRESSED : SDL_RELEASED
-            }
+        .button = {
+            .type=raw->value ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP,
+            .state = raw->value ? SDL_PRESSED : SDL_RELEASED
+        }
     };
     switch (raw->code) {
         case BTN_LEFT:
