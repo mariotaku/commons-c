@@ -130,6 +130,23 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
     }
 }
 
+void evmouse_set_grab(evmouse_t *mouse, SDL_bool grab) {
+    if (SDL_LockMutex(mouse->lock) != 0) {
+        return;
+    }
+    for (int i = 0; i < mouse->nfds; i++) {
+        if (mouse->fds[i].grab != grab) {
+            if (ioctl(mouse->fds[i].fd, EVIOCGRAB, grab ? 1 : 0) < 0) {
+                commons_log_warn("EvMouse", "Failed to set grab=%d on fd %d: %d (%s)", grab, mouse->fds[i].fd,
+                                 errno, strerror(errno));
+            } else {
+                mouse->fds[i].grab = grab;
+            }
+        }
+    }
+    SDL_UnlockMutex(mouse->lock);
+}
+
 void evmouse_interrupt(evmouse_t *mouse) {
     if (SDL_LockMutex(mouse->lock) != 0) {
         return;
@@ -213,7 +230,7 @@ static SDL_bool is_mouse(int fd, mouse_info_t *info) {
 
 static SDL_bool mouse_filter_any(const mouse_info_t *info, SDL_bool *grab) {
     (void) info;
-    *grab = SDL_TRUE;
+    *grab = SDL_FALSE;
     return SDL_TRUE;
 }
 

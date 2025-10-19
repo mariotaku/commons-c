@@ -25,6 +25,8 @@ void evmouse_close(evmouse_t *mouse);
 
 void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdata);
 
+void evmouse_set_grab(evmouse_t *mouse, SDL_bool grab);
+
 void evmouse_interrupt(evmouse_t *mouse);
 
 SDL_bool evmouse_is_interrupted(evmouse_t *mouse);
