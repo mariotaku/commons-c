@@ -69,6 +69,22 @@ static void test_remove_does_not_read_past_end(void) {
     array_list_destroy(list);
 }
 
+static void test_grow_beyond_initial_capacity(void) {
+    /* Regression: ensure_capacity used to clobber list->data on realloc
+     * failure and doubled capacity even when starting from zero. */
+    array_list_t *list = array_list_create(sizeof(int), 2);
+    for (int i = 0; i < 100; i++) {
+        int *slot = array_list_add(list, -1);
+        *slot = i;
+    }
+    assert(array_list_size(list) == 100);
+    for (int i = 0; i < 100; i++) {
+        assert(*(int *) array_list_get(list, i) == i);
+    }
+    assert(list->capacity >= 100);
+    array_list_destroy(list);
+}
+
 static void test_insert_at_index(void) {
     array_list_t *list = array_list_create(sizeof(int), 4);
     for (int i = 0; i < 3; i++) {
@@ -89,6 +105,7 @@ int main(void) {
     test_remove_last();
     test_remove_out_of_bounds();
     test_remove_does_not_read_past_end();
+    test_grow_beyond_initial_capacity();
     test_insert_at_index();
     return 0;
 }
