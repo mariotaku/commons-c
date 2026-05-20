@@ -81,8 +81,14 @@ int array_list_bsearch(const array_list_t *list, const void *compare_value, arra
 
 static void ensure_capacity(array_list_t *list, int new_size) {
     if (list->capacity >= new_size) return;
-    list->capacity *= 2;
-    list->data = realloc(list->data, items_offset(list, list->capacity));
+    int new_capacity = list->capacity > 0 ? list->capacity : 1;
+    while (new_capacity < new_size) {
+        new_capacity *= 2;
+    }
+    void *new_data = realloc(list->data, items_offset(list, new_capacity));
+    if (new_data == NULL) return;
+    list->data = new_data;
+    list->capacity = new_capacity;
 }
 
 static inline void *item_at(array_list_t *list, int index) {
