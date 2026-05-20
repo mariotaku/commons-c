@@ -54,6 +54,17 @@ void test_parse() {
 
     addr = sockaddr_parse("");
     assert(addr == NULL);
+
+    /* Regression: sockaddr_parse used to copy into an uninitialized
+     * 128-byte stack buffer without forcing null termination, so an
+     * over-long input made strchr() read past the buffer. The input
+     * is malformed so this must still return NULL, but it must not
+     * tip ASan or read undefined memory. */
+    char long_input[300];
+    memset(long_input, 'a', sizeof(long_input) - 1);
+    long_input[sizeof(long_input) - 1] = '\0';
+    addr = sockaddr_parse(long_input);
+    assert(addr == NULL);
 }
 
 void test_to_string() {
