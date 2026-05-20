@@ -27,7 +27,7 @@ static inline void refcounter_ref(refcounter_t *counter) {
 
 static inline bool refcounter_unref(refcounter_t *counter) {
     SDL_LockMutex(counter->lock);
-    counter->counter--;
+    int remaining = --counter->counter;
     SDL_UnlockMutex(counter->lock);
-    return counter->counter == 0;
+    return remaining == 0;
 }
