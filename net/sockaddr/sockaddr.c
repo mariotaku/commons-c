@@ -23,7 +23,8 @@ sockaddr_t *sockaddr_clone(const sockaddr_t *addr) {
 sockaddr_t *sockaddr_parse(const char *address) {
     assert(address != NULL);
     char buf[128];
-    strncpy(buf, address, 128);
+    strncpy(buf, address, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
     int af = AF_UNSPEC;
     char *addr_start = NULL, *addr_end = NULL, *port_start = NULL;
     if (buf[0] == '[') {
