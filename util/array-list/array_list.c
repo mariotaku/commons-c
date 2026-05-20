@@ -55,9 +55,10 @@ void *array_list_add(array_list_t *list, int insert_before) {
 }
 
 void array_list_remove(array_list_t *list, int index) {
-    if (index > list->size) return;
+    if (index < 0 || index >= list->size) return;
     if (index < list->size - 1) {
-        memmove(item_at(list, index), item_at(list, index + 1), items_offset(list, list->size - index));
+        memmove(item_at(list, index), item_at(list, index + 1),
+                items_offset(list, list->size - index - 1));
     }
     list->size -= 1;
 }
