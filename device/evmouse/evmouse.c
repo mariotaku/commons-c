@@ -25,7 +25,14 @@ typedef struct dev_fd_t {
 
 struct evmouse_t {
     SDL_mutex *lock;
+    /* `listening` is set true on entry to evmouse_listen and false when the
+     * loop should exit. `interrupted` records that an interrupt was requested:
+     * unlike `listening`, it is observable BEFORE evmouse_listen has started,
+     * so an interrupt that races ahead of the listener is not lost. The flag
+     * is consumed (cleared) by the next evmouse_listen call, on entry if
+     * interrupted-before-listen or at exit if interrupted-during-listen. */
     SDL_bool listening;
+    SDL_bool interrupted;
     dev_fd_t fds[EVMOUSE_MAX_FDS];
     int nfds;
 };
@@ -83,6 +90,14 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
         SDL_UnlockMutex(mouse->lock);
         return;
     }
+    if (mouse->interrupted) {
+        /* An interrupt was requested before we could start listening. Consume
+         * the signal and return without entering the loop, so the caller is
+         * not stuck waiting for an event that will never come. */
+        mouse->interrupted = SDL_FALSE;
+        SDL_UnlockMutex(mouse->lock);
+        return;
+    }
     mouse->listening = SDL_TRUE;
     SDL_UnlockMutex(mouse->lock);
     while (evmouse_is_interrupted(mouse)) {
@@ -128,6 +143,10 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
             }
         }
     }
+    if (SDL_LockMutex(mouse->lock) == 0) {
+        mouse->interrupted = SDL_FALSE;
+        SDL_UnlockMutex(mouse->lock);
+    }
 }
 
 void evmouse_set_grab(evmouse_t *mouse, SDL_bool grab) {
@@ -151,6 +170,10 @@ void evmouse_interrupt(evmouse_t *mouse) {
     if (SDL_LockMutex(mouse->lock) != 0) {
         return;
     }
+    /* Set both flags: listening breaks the in-flight loop, interrupted records
+     * the request so an evmouse_listen call that has not yet entered the loop
+     * (or has not been called at all) honors it. */
+    mouse->interrupted = SDL_TRUE;
     mouse->listening = SDL_FALSE;
     SDL_UnlockMutex(mouse->lock);
 }
