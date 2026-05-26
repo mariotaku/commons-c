@@ -267,8 +267,10 @@ bool sps_parse_dimension_hevc(const unsigned char *data, sps_dimension_t *dimens
 
     uint8_t max_sub_layers_minus1 = 0;
 
-    uint8_t sub_layer_profile_present_flag[6];
-    uint8_t sub_layer_level_present_flag[6];
+    /* max_sub_layers_minus1 is a 3-bit field (0..7); size arrays to match the wire-level
+     * maximum so a malformed stream cannot write past the buffer. */
+    uint8_t sub_layer_profile_present_flag[8];
+    uint8_t sub_layer_level_present_flag[8];
     uint32_t tmp;
 
     bitstream_t buf;

@@ -34,9 +34,27 @@ void test_sps_parse_dimension_hevc(void) {
     assert(1080 == dimension.height);
 }
 
+/* Regression: max_sub_layers_minus1 is a 3-bit field (0..7) but the spec only allows 0..6.
+ * The parser previously sized sub_layer_*_present_flag[] to 6, so a malformed stream with
+ * value 7 caused a 1-element OOB stack write. With arrays grown to [8] the parse must
+ * complete cleanly (returning false because the rest of the crafted stream is invalid)
+ * without writing past the buffer; under ASan the pre-fix code aborts here. */
+void test_sps_parse_dimension_hevc_max_sub_layers_7(void) {
+    static const uint8_t data[] = {
+            0x0E,                                                              /* vps_id=0, max_sub_layers_minus1=7, tnf=0 */
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* profile_info (88 bits) */
+            0x00,                                                              /* level_idc */
+            0x00, 0x00,                                                        /* 14 sub_layer present pairs + 2 padding */
+            0xFF,                                                              /* trailing 1-bits so subsequent ue(v) reads terminate */
+    };
+    sps_dimension_t dimension;
+    assert(!sps_parse_dimension_hevc(data, &dimension));
+}
+
 // not needed when using generate_test_runner.rb
 int main(void) {
     test_sps_parse_dimension_h264();
     test_sps_parse_dimension_hevc();
+    test_sps_parse_dimension_hevc_max_sub_layers_7();
     return 0;
 }
