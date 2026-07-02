@@ -10,12 +10,15 @@
 #if __WIN32__
 
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #define INVSOCKET ((SOCKET) NULL)
 typedef char SOCKOPT;
 
 #else
 
 #include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 typedef int SOCKET;
@@ -66,6 +69,46 @@ int wol_broadcast(const char *mac) {
     if (sockfd != INVSOCKET) {
         closesocket(sockfd);
     }
+    return ret;
+}
+
+int wol_unicast(const char *mac, const char *address) {
+    if (address == NULL || address[0] == '\0') {
+        return -1;
+    }
+    char packet[102];
+    if (!wol_build_packet(mac, packet)) {
+        return -1;
+    }
+
+    struct addrinfo hints, *results = NULL;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    int gai = getaddrinfo(address, "9", &hints, &results);
+    if (gai != 0) {
+        commons_log_error("WoL", "getaddrinfo(%s) error: %s", address, gai_strerror(gai));
+        return -1;
+    }
+
+    int ret = -1;
+    for (struct addrinfo *rp = results; rp != NULL; rp = rp->ai_next) {
+        SOCKET sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sockfd == INVSOCKET) {
+            continue;
+        }
+        if (sendto(sockfd, packet, sizeof(packet), 0, rp->ai_addr, rp->ai_addrlen) == -1) {
+            commons_log_error("WoL", "sendto(%s) error: %d %s", address, errno, strerror(errno));
+            closesocket(sockfd);
+            continue;
+        }
+        closesocket(sockfd);
+        ret = 0;
+        break;
+    }
+    freeaddrinfo(results);
     return ret;
 }
 
