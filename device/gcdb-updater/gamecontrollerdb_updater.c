@@ -133,12 +133,12 @@ static void write_header_lines(task_context *ctx) {
 
 static size_t header_cb(char *buffer, size_t size, size_t nitems, task_context *ctx) {
     if (ctx->status == 0) {
-        int status = 0;
+        long status = 0;
         curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &status);
         if (status == 301 || status == 302) {
             return size * nitems;
         }
-        ctx->status = status;
+        ctx->status = (int) status;
         if (status != 200) {
             return 0;
         }
