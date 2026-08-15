@@ -19,6 +19,12 @@
 
 #include "logging.h"
 
+#define SYSFS_ROOT "/sys"
+#define DEV_INPUT_ROOT "/dev/input"
+
+#define MAX_SIBLINGS 8
+#define NODE_NAME_MAX 32
+
 #define BITS_PER_LONG (sizeof(unsigned long) * 8)
 #define NBITS(x) (((x) - 1) / BITS_PER_LONG + 1)
 #define TEST_BIT(bit, array) (((array)[(bit) / BITS_PER_LONG] >> ((bit) % BITS_PER_LONG)) & 1ul)
@@ -27,9 +33,9 @@ struct gamepad_touchpad_t {
     int fd;
 };
 
-static bool sysfs_hid_parent(const char *dev_path, char *out, size_t out_len);
+static bool hid_parent_for_devnum(const char *sysfs_root, dev_t rdev, char *out, size_t out_len);
 
-static bool find_touchpad_sibling(const char *hid_path, char *out, size_t out_len);
+static int sibling_event_nodes(const char *hid_path, char names[][NODE_NAME_MAX], int max_names);
 
 static bool is_multitouch_pointer(int fd);
 
@@ -47,39 +53,49 @@ gamepad_touchpad_t *gamepad_touchpad_grab(SDL_GameController *controller) {
         return NULL;
     }
 
-    // Whether SDL bound the pad through evdev or hidapi, both nodes live under
-    // the same HID device in sysfs, so one walk covers either backend.
+    struct stat st;
+    if (stat(dev_path, &st) != 0) {
+        commons_log_debug("GamepadTouchpad", "Can't stat %s: %s", dev_path, strerror(errno));
+        return NULL;
+    }
+
     char hid_path[PATH_MAX];
-    if (!sysfs_hid_parent(dev_path, hid_path, sizeof(hid_path))) {
+    if (!hid_parent_for_devnum(SYSFS_ROOT, st.st_rdev, hid_path, sizeof(hid_path))) {
         commons_log_debug("GamepadTouchpad", "Can't resolve HID parent of %s", dev_path);
         return NULL;
     }
 
-    char node_path[PATH_MAX];
-    if (!find_touchpad_sibling(hid_path, node_path, sizeof(node_path))) {
-        return NULL;
+    char names[MAX_SIBLINGS][NODE_NAME_MAX];
+    int num_names = sibling_event_nodes(hid_path, names, MAX_SIBLINGS);
+    for (int i = 0; i < num_names; i++) {
+        char node_path[PATH_MAX];
+        if (snprintf(node_path, sizeof(node_path), "%s/%s", DEV_INPUT_ROOT, names[i]) >= (int) sizeof(node_path)) {
+            continue;
+        }
+        int fd = open(node_path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (fd < 0) {
+            continue;
+        }
+        if (!is_multitouch_pointer(fd)) {
+            close(fd);
+            continue;
+        }
+        if (ioctl(fd, EVIOCGRAB, 1) < 0) {
+            commons_log_warn("GamepadTouchpad", "Can't grab %s: %s", node_path, strerror(errno));
+            close(fd);
+            continue;
+        }
+        gamepad_touchpad_t *touchpad = SDL_malloc(sizeof(gamepad_touchpad_t));
+        if (touchpad == NULL) {
+            ioctl(fd, EVIOCGRAB, 0);
+            close(fd);
+            return NULL;
+        }
+        touchpad->fd = fd;
+        commons_log_info("GamepadTouchpad", "Grabbed %s", node_path);
+        return touchpad;
     }
-
-    int fd = open(node_path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    if (fd < 0) {
-        commons_log_warn("GamepadTouchpad", "Can't open %s: %s", node_path, strerror(errno));
-        return NULL;
-    }
-    if (ioctl(fd, EVIOCGRAB, 1) < 0) {
-        commons_log_warn("GamepadTouchpad", "Can't grab %s: %s", node_path, strerror(errno));
-        close(fd);
-        return NULL;
-    }
-
-    gamepad_touchpad_t *touchpad = SDL_malloc(sizeof(gamepad_touchpad_t));
-    if (touchpad == NULL) {
-        ioctl(fd, EVIOCGRAB, 0);
-        close(fd);
-        return NULL;
-    }
-    touchpad->fd = fd;
-    commons_log_info("GamepadTouchpad", "Grabbed %s", node_path);
-    return touchpad;
+    return NULL;
 }
 
 void gamepad_touchpad_release(gamepad_touchpad_t *touchpad) {
@@ -92,21 +108,18 @@ void gamepad_touchpad_release(gamepad_touchpad_t *touchpad) {
 }
 
 /**
- * Map the device node SDL bound to the HID device that owns it.
- * Both the input and hidraw children live below the same HID device, so the
- * one that owns the input* children is the common ancestor to search from.
+ * Find the device that owns the input children of whatever node SDL bound.
+ *
+ * SDL reports an "event" or "js" node with the Linux driver, or a "hidraw" one
+ * with HIDAPI; both live below the same HID device. /sys/class is not
+ * always visible to a sandboxed app, so resolve through /sys/dev/char instead
+ * and walk up until we reach the ancestor holding the input/ directory.
+ *
+ * @param sysfs_root Mount point of sysfs, parameterised for tests.
  */
-static bool sysfs_hid_parent(const char *dev_path, char *out, size_t out_len) {
-    // /sys/class/{input,hidraw} isn't always visible to a sandboxed app, but
-    // /sys/dev/char is, so resolve through the device number instead. SDL bound
-    // either an event*/js* node (Linux driver) or a hidraw* one (HIDAPI); both
-    // live below the same HID device.
-    struct stat st;
-    if (stat(dev_path, &st) < 0) {
-        return false;
-    }
+static bool hid_parent_for_devnum(const char *sysfs_root, dev_t rdev, char *out, size_t out_len) {
     char link[PATH_MAX];
-    if (snprintf(link, sizeof(link), "/sys/dev/char/%u:%u", major(st.st_rdev), minor(st.st_rdev)) >=
+    if (snprintf(link, sizeof(link), "%s/dev/char/%u:%u", sysfs_root, major(rdev), minor(rdev)) >=
         (int) sizeof(link)) {
         return false;
     }
@@ -115,9 +128,18 @@ static bool sysfs_hid_parent(const char *dev_path, char *out, size_t out_len) {
         return false;
     }
 
-    // Walk up from .../<hid>/input/inputN/eventM or .../<hid>/hidraw/hidrawN
-    // until we reach the ancestor that owns the input children.
-    while (strncmp(resolved, "/sys/devices/", 13) == 0) {
+    // Never walk above <sysfs_root>/devices.
+    char devices_root[PATH_MAX];
+    if (snprintf(link, sizeof(link), "%s/devices", sysfs_root) >= (int) sizeof(link) ||
+        realpath(link, devices_root) == NULL) {
+        return false;
+    }
+    size_t devices_root_len = strlen(devices_root);
+    if (strncmp(resolved, devices_root, devices_root_len) != 0) {
+        return false;
+    }
+
+    while (strlen(resolved) > devices_root_len) {
         char probe[PATH_MAX];
         if (snprintf(probe, sizeof(probe), "%s/input", resolved) < (int) sizeof(probe)) {
             struct stat probe_st;
@@ -138,19 +160,25 @@ static bool sysfs_hid_parent(const char *dev_path, char *out, size_t out_len) {
     return false;
 }
 
-/** Look for a multitouch trackpad among the HID device's other input children. */
-static bool find_touchpad_sibling(const char *hid_path, char *out, size_t out_len) {
+/**
+ * Collect the event node names below a device's input children, e.g. the
+ * "event14" in <hid>/input/input15/event14. Order follows readdir and carries
+ * no meaning; callers must identify the touchpad by capability.
+ *
+ * @return Number of names written to @p names.
+ */
+static int sibling_event_nodes(const char *hid_path, char names[][NODE_NAME_MAX], int max_names) {
     char inputs_path[PATH_MAX];
     if (snprintf(inputs_path, sizeof(inputs_path), "%s/input", hid_path) >= (int) sizeof(inputs_path)) {
-        return false;
+        return 0;
     }
     DIR *inputs = opendir(inputs_path);
     if (inputs == NULL) {
-        return false;
+        return 0;
     }
-    bool found = false;
+    int num_names = 0;
     struct dirent *input_ent;
-    while (!found && (input_ent = readdir(inputs)) != NULL) {
+    while (num_names < max_names && (input_ent = readdir(inputs)) != NULL) {
         if (strncmp(input_ent->d_name, "input", 5) != 0) {
             continue;
         }
@@ -164,35 +192,23 @@ static bool find_touchpad_sibling(const char *hid_path, char *out, size_t out_le
             continue;
         }
         struct dirent *event_ent;
-        while (!found && (event_ent = readdir(input_dir)) != NULL) {
-            if (strncmp(event_ent->d_name, "event", 5) != 0) {
+        while (num_names < max_names && (event_ent = readdir(input_dir)) != NULL) {
+            if (strncmp(event_ent->d_name, "event", 5) != 0 || strlen(event_ent->d_name) >= NODE_NAME_MAX) {
                 continue;
             }
-            char node_path[PATH_MAX];
-            if (snprintf(node_path, sizeof(node_path), "/dev/input/%s", event_ent->d_name) >=
-                (int) sizeof(node_path)) {
-                continue;
-            }
-            int fd = open(node_path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-            if (fd < 0) {
-                continue;
-            }
-            if (is_multitouch_pointer(fd) && strlen(node_path) < out_len) {
-                strcpy(out, node_path);
-                found = true;
-            }
-            close(fd);
+            strcpy(names[num_names++], event_ent->d_name);
         }
         closedir(input_dir);
     }
     closedir(inputs);
-    return found;
+    return num_names;
 }
 
 /**
  * The kernel reports a controller touchpad as a pointer device
  * (INPUT_PROP_POINTER, not INPUT_PROP_DIRECT) with multitouch axes. The gamepad
- * node has no ABS_MT axes, so it is never matched.
+ * node has no ABS_MT axes so it is never matched, and a real touchscreen is
+ * excluded by INPUT_PROP_DIRECT.
  */
 static bool is_multitouch_pointer(int fd) {
     unsigned long props[NBITS(INPUT_PROP_MAX)];
