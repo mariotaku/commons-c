@@ -19,3 +19,7 @@ endif ()
 add_executable(test_gcdb_update test_gcdb_update.c)
 target_link_libraries(test_gcdb_update PRIVATE commons-gamecontrollerdb-updater commons-logging)
 add_test(test_gcdb_update test_gcdb_update)
+# Fetches gamecontrollerdb.txt over the network, and waits for the file to
+# appear without a bound of its own - so a download that never lands would
+# otherwise hang until the whole run is killed.
+set_tests_properties(test_gcdb_update PROPERTIES TIMEOUT 60)

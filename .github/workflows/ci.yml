@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gcc
+            cc: gcc
+          - name: clang
+            cc: clang
+          - name: clang + asan/ubsan
+            cc: clang
+            cflags: -fsanitize=address,undefined -fno-omit-frame-pointer -g
+            ldflags: -fsanitize=address,undefined
+            sanitizers: true
+
+    env:
+      # Without halt_on_error UBSan only prints to stderr, and a test that
+      # trips it still exits 0.
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_OPTIONS: abort_on_error=1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            pkg-config \
+            libsdl2-dev \
+            uuid-dev \
+            libcurl4-openssl-dev
+
+      - name: Lower ASLR entropy for ASan
+        if: matrix.sanitizers
+        # Ubuntu 24.04 ships vm.mmap_rnd_bits=32, which collides with ASan's
+        # shadow mapping and segfaults binaries at startup at random.
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_C_FLAGS="${{ matrix.cflags }}" \
+            -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.ldflags }}"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        # Serial on purpose: the executor and refcounter tests assert on wall
+        # clock timing and get flaky when they compete for cores.
+        run: ctest --test-dir build --output-on-failure --timeout 300
