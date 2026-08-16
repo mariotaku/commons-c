@@ -16,7 +16,7 @@ option(COMMONS_GAMEPAD_TOUCHPAD_EXAMPLE "Build the gamepad-touchpad example" OFF
 if (COMMONS_GAMEPAD_TOUCHPAD_EXAMPLE)
     add_executable(example_gamepad_touchpad example/gamepad_touchpad_example.c)
     target_include_directories(example_gamepad_touchpad SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(example_gamepad_touchpad PRIVATE commons-gamepad-touchpad ${SDL2_LIBRARIES})
+    target_link_libraries(example_gamepad_touchpad PRIVATE commons-gamepad-touchpad commons-logging ${SDL2_LIBRARIES})
 endif ()
 
 if (NOT CMAKE_TESTING_ENABLED)
