@@ -56,7 +56,12 @@ static void build_ds4_fixture(void) {
     fixture_mkdir("%s/devices/platform/usb/%s/input/input20/event20", fixture_root, XBOX_HID);
     fixture_mkdir("%s/devices/platform/usb/%s/input/input20/js8", fixture_root, XBOX_HID);
 
-    // An LG remote: a virtual device with no HID parent and no touchpad sibling.
+    // Virtual input hub: the TV's own remote, IR receiver, etc. all share
+    // /sys/devices/virtual, whose input/ owns every one of them. SDL can even
+    // report one (a magic remote) as a game controller. The walk must not stop
+    // here, or it would grab all of these - including the remote (event0).
+    fixture_mkdir("%s/devices/virtual/input/input0/event0", fixture_root);
+    fixture_mkdir("%s/devices/virtual/input/input1/event1", fixture_root);
     fixture_mkdir("%s/devices/virtual/input/input11/event11", fixture_root);
     fixture_symlink("../../devices/virtual/input/input11/event11", "%s/dev/char/13:75", fixture_root);
 }
@@ -74,14 +79,24 @@ static void test_hid_parent_from_any_node(void) {
     }
 }
 
-/** A virtual device resolves to its own ancestor, not to anything HID-like. */
-static void test_hid_parent_virtual_device(void) {
-    char expected[PATH_MAX];
-    snprintf(expected, sizeof(expected), "%s/devices/virtual", fixture_root);
-
+/**
+ * A virtual device (no HID parent) must not resolve - otherwise the walk would
+ * stop at /devices/virtual and grab every device sharing that hub, the remote
+ * included.
+ */
+static void test_hid_parent_virtual_device_rejected(void) {
     char out[PATH_MAX];
-    assert(hid_parent_for_devnum(fixture_root, makedev(13, 75), out, sizeof(out)));
-    assert(strcmp(out, expected) == 0);
+    assert(!hid_parent_for_devnum(fixture_root, makedev(13, 75), out, sizeof(out)));
+}
+
+/** The HID-device-dir predicate accepts real names and rejects everything else. */
+static void test_is_hid_device_dirname(void) {
+    assert(is_hid_device_dirname("0003:054C:09CC.0021"));
+    assert(is_hid_device_dirname("0005:054C:09CC.0041"));
+    assert(!is_hid_device_dirname("virtual"));
+    assert(!is_hid_device_dirname("input15"));
+    assert(!is_hid_device_dirname("0003:054C:09CC"));      // no instance
+    assert(!is_hid_device_dirname("0003:054C:09CC.0021x")); // trailing junk
 }
 
 /** An unknown device number must fail rather than resolve to something else. */
@@ -229,7 +244,8 @@ int main() {
     build_ds4_fixture();
 
     test_hid_parent_from_any_node();
-    test_hid_parent_virtual_device();
+    test_hid_parent_virtual_device_rejected();
+    test_is_hid_device_dirname();
     test_hid_parent_unknown_devnum();
     test_grabbable_is_touchpad_only();
     test_reserved_joystick();

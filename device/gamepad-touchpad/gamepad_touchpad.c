@@ -36,6 +36,8 @@ struct gamepad_touchpad_t {
 
 static bool hid_parent_for_devnum(const char *sysfs_root, dev_t rdev, char *out, size_t out_len);
 
+static bool is_hid_device_dirname(const char *name);
+
 static int collect_grabbable_nodes(const char *hid_path, char names[][NODE_NAME_MAX], int max_names);
 
 static bool input_child_reserved_by_sdl(const char *child_path);
@@ -117,7 +119,13 @@ void gamepad_touchpad_release(gamepad_touchpad_t *touchpad) {
  * SDL reports an "event" or "js" node with the Linux driver, or a "hidraw" one
  * with HIDAPI; both live below the same HID device. /sys/class is not always
  * visible to a sandboxed app, so resolve through /sys/dev/char instead and walk
- * up until we reach the ancestor holding the input/ directory.
+ * up to the enclosing HID device.
+ *
+ * The ancestor must be a real HID device (dir named BUS:VENDOR:PRODUCT.INSTANCE),
+ * not merely something with an input/ subdirectory: virtual input devices - the
+ * TV's own remote, IR receiver, etc. - all sit under /sys/devices/virtual, whose
+ * input/ owns every one of them. Stopping there would grab the lot, including the
+ * remote. A genuine controller always has its own HID device dir.
  *
  * @param sysfs_root Mount point of sysfs, parameterised for tests.
  */
@@ -144,24 +152,29 @@ static bool hid_parent_for_devnum(const char *sysfs_root, dev_t rdev, char *out,
     }
 
     while (strlen(resolved) > devices_root_len) {
-        char probe[PATH_MAX];
-        if (snprintf(probe, sizeof(probe), "%s/input", resolved) < (int) sizeof(probe)) {
-            struct stat probe_st;
-            if (stat(probe, &probe_st) == 0 && S_ISDIR(probe_st.st_mode)) {
-                if (strlen(resolved) >= out_len) {
-                    return false;
-                }
-                strcpy(out, resolved);
-                return true;
-            }
-        }
         char *slash = strrchr(resolved, '/');
+        const char *base = slash != NULL ? slash + 1 : resolved;
+        if (is_hid_device_dirname(base)) {
+            if (strlen(resolved) >= out_len) {
+                return false;
+            }
+            strcpy(out, resolved);
+            return true;
+        }
         if (slash == NULL) {
             break;
         }
         *slash = '\0';
     }
     return false;
+}
+
+/** A HID device sysfs dir is named "BUS:VENDOR:PRODUCT.INSTANCE", all hex. */
+static bool is_hid_device_dirname(const char *name) {
+    unsigned int bus, vendor, product, instance;
+    int consumed = 0;
+    return sscanf(name, "%x:%x:%x.%x%n", &bus, &vendor, &product, &instance, &consumed) == 4 &&
+           name[consumed] == '\0';
 }
 
 /**
