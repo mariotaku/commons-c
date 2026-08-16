@@ -113,6 +113,10 @@ static void on_controller_removed(SDL_JoystickID id) {
 }
 
 int main(void) {
+    // Unbuffered so logs stream live when stdout is a pipe (e.g. over ares-shell)
+    // rather than sitting in the block buffer until exit.
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
     commons_logging_init("gamepad-touchpad-example");
     if (SDL_Init(SDL_INIT_GAMECONTROLLER) != 0) {
         commons_log_fatal(TAG, "SDL_Init failed: %s", SDL_GetError());
