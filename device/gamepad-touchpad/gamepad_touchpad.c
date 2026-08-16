@@ -88,7 +88,9 @@ gamepad_touchpad_t *gamepad_touchpad_grab(SDL_GameController *controller) {
             continue;
         }
         if (ioctl(fd, EVIOCGRAB, 1) < 0) {
-            commons_log_warn("GamepadTouchpad", "Can't grab %s: %s", node_path, strerror(errno));
+            // Best-effort: a failed grab just means the platform may still see the
+            // touchpad. Nothing the caller can act on, so info rather than warn.
+            commons_log_info("GamepadTouchpad", "Can't grab %s: %s", node_path, strerror(errno));
             close(fd);
             continue;
         }
