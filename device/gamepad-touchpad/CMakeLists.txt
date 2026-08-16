@@ -11,6 +11,14 @@ target_include_directories(commons-gamepad-touchpad PUBLIC ${CMAKE_CURRENT_SOURC
 target_include_directories(commons-gamepad-touchpad SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(commons-gamepad-touchpad PUBLIC commons-logging ${SDL2_LIBRARIES})
 
+# Headless diagnostic; off by default so consumer builds don't build it.
+option(COMMONS_GAMEPAD_TOUCHPAD_EXAMPLE "Build the gamepad-touchpad example" OFF)
+if (COMMONS_GAMEPAD_TOUCHPAD_EXAMPLE)
+    add_executable(example_gamepad_touchpad example/gamepad_touchpad_example.c)
+    target_include_directories(example_gamepad_touchpad SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(example_gamepad_touchpad PRIVATE commons-gamepad-touchpad ${SDL2_LIBRARIES})
+endif ()
+
 if (NOT CMAKE_TESTING_ENABLED)
     return()
 endif ()
