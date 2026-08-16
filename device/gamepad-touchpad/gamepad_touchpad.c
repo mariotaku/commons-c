@@ -19,25 +19,26 @@
 
 #include "logging.h"
 
+#ifndef INPUT_PROP_ACCELEROMETER
+#define INPUT_PROP_ACCELEROMETER 0x06
+#endif
+
 #define SYSFS_ROOT "/sys"
 #define DEV_INPUT_ROOT "/dev/input"
 
-#define MAX_SIBLINGS 8
+#define MAX_GRABBED 8
 #define NODE_NAME_MAX 32
 
-#define BITS_PER_LONG (sizeof(unsigned long) * 8)
-#define NBITS(x) (((x) - 1) / BITS_PER_LONG + 1)
-#define TEST_BIT(bit, array) (((array)[(bit) / BITS_PER_LONG] >> ((bit) % BITS_PER_LONG)) & 1ul)
-
 struct gamepad_touchpad_t {
-    int fd;
+    int fds[MAX_GRABBED];
+    int count;
 };
 
 static bool hid_parent_for_devnum(const char *sysfs_root, dev_t rdev, char *out, size_t out_len);
 
-static int sibling_event_nodes(const char *hid_path, char names[][NODE_NAME_MAX], int max_names);
+static int collect_grabbable_nodes(const char *hid_path, char names[][NODE_NAME_MAX], int max_names);
 
-static bool is_multitouch_pointer(int fd);
+static bool input_child_reserved_by_sdl(const char *child_path);
 
 gamepad_touchpad_t *gamepad_touchpad_grab(SDL_GameController *controller) {
     if (controller == NULL) {
@@ -65,8 +66,16 @@ gamepad_touchpad_t *gamepad_touchpad_grab(SDL_GameController *controller) {
         return NULL;
     }
 
-    char names[MAX_SIBLINGS][NODE_NAME_MAX];
-    int num_names = sibling_event_nodes(hid_path, names, MAX_SIBLINGS);
+    char names[MAX_GRABBED][NODE_NAME_MAX];
+    int num_names = collect_grabbable_nodes(hid_path, names, MAX_GRABBED);
+    if (num_names == 0) {
+        return NULL;
+    }
+
+    gamepad_touchpad_t *touchpad = SDL_calloc(1, sizeof(gamepad_touchpad_t));
+    if (touchpad == NULL) {
+        return NULL;
+    }
     for (int i = 0; i < num_names; i++) {
         char node_path[PATH_MAX];
         if (snprintf(node_path, sizeof(node_path), "%s/%s", DEV_INPUT_ROOT, names[i]) >= (int) sizeof(node_path)) {
@@ -76,34 +85,29 @@ gamepad_touchpad_t *gamepad_touchpad_grab(SDL_GameController *controller) {
         if (fd < 0) {
             continue;
         }
-        if (!is_multitouch_pointer(fd)) {
-            close(fd);
-            continue;
-        }
         if (ioctl(fd, EVIOCGRAB, 1) < 0) {
             commons_log_warn("GamepadTouchpad", "Can't grab %s: %s", node_path, strerror(errno));
             close(fd);
             continue;
         }
-        gamepad_touchpad_t *touchpad = SDL_malloc(sizeof(gamepad_touchpad_t));
-        if (touchpad == NULL) {
-            ioctl(fd, EVIOCGRAB, 0);
-            close(fd);
-            return NULL;
-        }
-        touchpad->fd = fd;
         commons_log_info("GamepadTouchpad", "Grabbed %s", node_path);
-        return touchpad;
+        touchpad->fds[touchpad->count++] = fd;
     }
-    return NULL;
+    if (touchpad->count == 0) {
+        SDL_free(touchpad);
+        return NULL;
+    }
+    return touchpad;
 }
 
 void gamepad_touchpad_release(gamepad_touchpad_t *touchpad) {
     if (touchpad == NULL) {
         return;
     }
-    ioctl(touchpad->fd, EVIOCGRAB, 0);
-    close(touchpad->fd);
+    for (int i = 0; i < touchpad->count; i++) {
+        ioctl(touchpad->fds[i], EVIOCGRAB, 0);
+        close(touchpad->fds[i]);
+    }
     SDL_free(touchpad);
 }
 
@@ -111,9 +115,9 @@ void gamepad_touchpad_release(gamepad_touchpad_t *touchpad) {
  * Find the device that owns the input children of whatever node SDL bound.
  *
  * SDL reports an "event" or "js" node with the Linux driver, or a "hidraw" one
- * with HIDAPI; both live below the same HID device. /sys/class is not
- * always visible to a sandboxed app, so resolve through /sys/dev/char instead
- * and walk up until we reach the ancestor holding the input/ directory.
+ * with HIDAPI; both live below the same HID device. /sys/class is not always
+ * visible to a sandboxed app, so resolve through /sys/dev/char instead and walk
+ * up until we reach the ancestor holding the input/ directory.
  *
  * @param sysfs_root Mount point of sysfs, parameterised for tests.
  */
@@ -161,13 +165,21 @@ static bool hid_parent_for_devnum(const char *sysfs_root, dev_t rdev, char *out,
 }
 
 /**
- * Collect the event node names below a device's input children, e.g. the
- * "event14" in <hid>/input/input15/event14. Order follows readdir and carries
- * no meaning; callers must identify the touchpad by capability.
+ * Collect the event nodes under a controller's HID device that are safe to grab.
  *
- * @return Number of names written to @p names.
+ * Everything below the HID device belongs to the controller, so provenance -
+ * not the touchpad's own capabilities - decides. Grab every input child except
+ * the two SDL reads itself: the joystick (identified by a js* node) and the
+ * motion sensor (INPUT_PROP_ACCELEROMETER). What remains is the touchpad (and
+ * any future controller-owned pointer device), which the platform would
+ * otherwise consume as touchscreen input. A controller with no touchpad (e.g. a
+ * plain Xbox pad) yields nothing.
+ *
+ * This keeps classification entirely in sysfs, so it needs no open evdev device.
+ *
+ * @return Number of event node names written to @p names.
  */
-static int sibling_event_nodes(const char *hid_path, char names[][NODE_NAME_MAX], int max_names) {
+static int collect_grabbable_nodes(const char *hid_path, char names[][NODE_NAME_MAX], int max_names) {
     char inputs_path[PATH_MAX];
     if (snprintf(inputs_path, sizeof(inputs_path), "%s/input", hid_path) >= (int) sizeof(inputs_path)) {
         return 0;
@@ -185,6 +197,9 @@ static int sibling_event_nodes(const char *hid_path, char names[][NODE_NAME_MAX]
         char input_path[PATH_MAX];
         if (snprintf(input_path, sizeof(input_path), "%s/%s", inputs_path, input_ent->d_name) >=
             (int) sizeof(input_path)) {
+            continue;
+        }
+        if (input_child_reserved_by_sdl(input_path)) {
             continue;
         }
         DIR *input_dir = opendir(input_path);
@@ -205,25 +220,32 @@ static int sibling_event_nodes(const char *hid_path, char names[][NODE_NAME_MAX]
 }
 
 /**
- * The kernel reports a controller touchpad as a pointer device
- * (INPUT_PROP_POINTER, not INPUT_PROP_DIRECT) with multitouch axes. The gamepad
- * node has no ABS_MT axes so it is never matched, and a real touchscreen is
- * excluded by INPUT_PROP_DIRECT.
+ * True if an input child is one SDL consumes directly and must be left alone:
+ * the joystick (has a js* node) or the motion sensor (INPUT_PROP_ACCELEROMETER).
  */
-static bool is_multitouch_pointer(int fd) {
-    unsigned long props[NBITS(INPUT_PROP_MAX)];
-    memset(props, 0, sizeof(props));
-    if (ioctl(fd, EVIOCGPROP(sizeof(props)), props) < 0) {
-        return false;
-    }
-    if (!TEST_BIT(INPUT_PROP_POINTER, props) || TEST_BIT(INPUT_PROP_DIRECT, props)) {
-        return false;
+static bool input_child_reserved_by_sdl(const char *child_path) {
+    DIR *dir = opendir(child_path);
+    if (dir != NULL) {
+        struct dirent *ent;
+        while ((ent = readdir(dir)) != NULL) {
+            if (strncmp(ent->d_name, "js", 2) == 0) {
+                closedir(dir);
+                return true;
+            }
+        }
+        closedir(dir);
     }
 
-    unsigned long absbits[NBITS(ABS_MAX)];
-    memset(absbits, 0, sizeof(absbits));
-    if (ioctl(fd, EVIOCGBIT(EV_ABS, sizeof(absbits)), absbits) < 0) {
+    char props_path[PATH_MAX];
+    if (snprintf(props_path, sizeof(props_path), "%s/properties", child_path) >= (int) sizeof(props_path)) {
         return false;
     }
-    return TEST_BIT(ABS_MT_POSITION_X, absbits) && TEST_BIT(ABS_MT_POSITION_Y, absbits);
+    FILE *f = fopen(props_path, "r");
+    if (f == NULL) {
+        return false;
+    }
+    unsigned long props = 0;
+    bool is_accel = fscanf(f, "%lx", &props) == 1 && ((props >> INPUT_PROP_ACCELEROMETER) & 1ul) != 0;
+    fclose(f);
+    return is_accel;
 }
