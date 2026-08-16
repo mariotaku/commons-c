@@ -235,6 +235,12 @@ static int collect_grabbable_nodes(const char *hid_path, char names[][NODE_NAME_
 /**
  * True if an input child is one SDL consumes directly and must be left alone:
  * the joystick (has a js* node) or the motion sensor (INPUT_PROP_ACCELEROMETER).
+ *
+ * Despite the name, INPUT_PROP_ACCELEROMETER marks the whole inertial node - the
+ * kernel reports accelerometer data on ABS_X/Y/Z and gyroscope data on
+ * ABS_RX/RY/RZ under this one property, and there is no INPUT_PROP_GYROSCOPE. So
+ * a DualShock 4 / DualSense combined motion node (which SDL reads as both
+ * SDL_SENSOR_ACCEL and SDL_SENSOR_GYRO) is matched here and left to SDL.
  */
 static bool input_child_reserved_by_sdl(const char *child_path) {
     DIR *dir = opendir(child_path);
