@@ -1,5 +1,6 @@
 #include "os_info.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <pbnjson.h>
 
@@ -8,10 +9,14 @@
 int os_info_get(os_info_t *info) {
     memset(info, 0, sizeof(*info));
     info->name = strdup("webOS");
+    // Unknown until sdkVersion says otherwise
+    info->version.major = -1;
+    info->version.minor = -1;
+    info->version.patch = -1;
     char *payload = NULL;
     const char *uri = "luna://com.webos.service.tv.systemproperty/getSystemInfo";
     if (!HLunaServiceCallSync(uri, "{\"keys\":[\"sdkVersion\", \"otaId\"]}", true, &payload) || !payload) {
-        memset(&info->version, 0, sizeof(version_info_t));
+        free(payload);
         return -1;
     }
 
@@ -21,15 +26,22 @@ int os_info_get(os_info_t *info) {
     jdomparser_feed(parser, payload, (int) strlen(payload));
     jdomparser_end(parser);
     jvalue_ref os_info = jdomparser_get_result(parser);
+    free(payload);
+    if (!jis_boolean(jobject_get(os_info, j_cstr_to_buffer("returnValue")))) {
+        // Not a reply from the service
+        jdomparser_release(&parser);
+        return -1;
+    }
+    // returnValue is false if any key is unknown, but the reply still carries the known ones
     jvalue_ref sdk_version = jobject_get(os_info, j_cstr_to_buffer("sdkVersion"));
-    if (!jis_null(sdk_version)) {
+    if (jis_string(sdk_version)) {
         raw_buffer sdk_version_buf = jstring_get(sdk_version);
         char *version_str = strndup(sdk_version_buf.m_str, sdk_version_buf.m_len);
         version_info_parse(&info->version, version_str);
         free(version_str);
     }
     jvalue_ref ota_id = jobject_get(os_info, j_cstr_to_buffer("otaId"));
-    if (!jis_null(ota_id)) {
+    if (jis_string(ota_id)) {
         raw_buffer ota_id_buf = jstring_get(ota_id);
         info->extras = strndup(ota_id_buf.m_str, ota_id_buf.m_len);
     }
