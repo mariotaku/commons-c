@@ -1,5 +1,7 @@
 #include "evmouse.h"
 
+#include <SDL_timer.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -12,14 +14,9 @@
 
 #include "logging.h"
 
-typedef struct mouse_info_t {
-    struct input_id id;
-} mouse_info_t;
-
-typedef SDL_bool (*mouse_filter_fn)(const mouse_info_t *info, SDL_bool *grab);
-
 typedef struct dev_fd_t {
     int fd;
+    unsigned int event_number;
     SDL_bool grab;
 } dev_fd_t;
 
@@ -33,15 +30,14 @@ struct evmouse_t {
      * interrupted-before-listen or at exit if interrupted-during-listen. */
     SDL_bool listening;
     SDL_bool interrupted;
+    SDL_bool requested_grab;
     dev_fd_t fds[EVMOUSE_MAX_FDS];
     int nfds;
 };
 
-static int mouse_fds_find(dev_fd_t *fds, mouse_filter_fn filter);
-
-static SDL_bool mouse_filter_any(const mouse_info_t *info, SDL_bool *grab);
-
-static SDL_bool is_mouse(int fd, mouse_info_t *info);
+static SDL_bool discover_mice(evmouse_t *mouse);
+static void discover_from_directory(evmouse_t *mouse);
+static SDL_bool is_mouse(int fd);
 
 static inline SDL_bool has_bit(const uint8_t *bits, uint32_t bit);
 
@@ -53,13 +49,20 @@ static void dispatch_button(const struct input_event *raw, evmouse_listener_t li
 
 
 evmouse_t *evmouse_open_default() {
-    evmouse_t *mouse = malloc(sizeof(evmouse_t));
-    memset(mouse, 0, sizeof(evmouse_t));
+    evmouse_t *mouse = calloc(1, sizeof(*mouse));
+    if (mouse == NULL) return NULL;
     mouse->lock = SDL_CreateMutex();
-    mouse->nfds = mouse_fds_find(mouse->fds, mouse_filter_any);
-    if (mouse->nfds <= 0) {
+    if (mouse->lock == NULL) {
         free(mouse);
         return NULL;
+    }
+    if (!discover_mice(mouse)) {
+        /* Some environments expose evdev without procfs. Retain startup discovery there. */
+        discover_from_directory(mouse);
+        if (mouse->nfds == 0) {
+            evmouse_close(mouse);
+            return NULL;
+        }
     }
     return mouse;
 }
@@ -100,7 +103,14 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
     }
     mouse->listening = SDL_TRUE;
     SDL_UnlockMutex(mouse->lock);
+    Uint32 last_scan = SDL_GetTicks();
     while (evmouse_is_interrupted(mouse)) {
+        if ((Uint32)(SDL_GetTicks() - last_scan) >= 250) {
+            SDL_LockMutex(mouse->lock);
+            discover_mice(mouse);
+            SDL_UnlockMutex(mouse->lock);
+            last_scan = SDL_GetTicks();
+        }
         fd_set fds;
         FD_ZERO(&fds);
         for (int i = 0; i < mouse->nfds; i++) {
@@ -117,7 +127,15 @@ void evmouse_listen(evmouse_t *mouse, evmouse_listener_t listener, void *userdat
                 continue;
             }
             struct input_event raw_ev;
-            if (read(fd, &raw_ev, sizeof(raw_ev)) != sizeof(raw_ev)) {
+            ssize_t count = read(fd, &raw_ev, sizeof(raw_ev));
+            if (count != (ssize_t)sizeof(raw_ev)) {
+                if (count == 0 || (count < 0 && (errno == ENODEV || errno == EIO))) {
+                    SDL_LockMutex(mouse->lock);
+                    close(fd);
+                    mouse->fds[i] = mouse->fds[--mouse->nfds];
+                    SDL_UnlockMutex(mouse->lock);
+                    i--; /* Check the descriptor moved into this slot. */
+                }
                 continue;
             }
             switch (raw_ev.type) {
@@ -153,6 +171,7 @@ void evmouse_set_grab(evmouse_t *mouse, SDL_bool grab) {
     if (SDL_LockMutex(mouse->lock) != 0) {
         return;
     }
+    mouse->requested_grab = grab;
     for (int i = 0; i < mouse->nfds; i++) {
         if (mouse->fds[i].grab != grab) {
             if (ioctl(mouse->fds[i].fd, EVIOCGRAB, grab ? 1 : 0) < 0) {
@@ -188,54 +207,79 @@ SDL_bool evmouse_is_interrupted(evmouse_t *mouse) {
     return interrupted;
 }
 
-static int mouse_fds_find(dev_fd_t *fds, mouse_filter_fn filter) {
-    DIR *dir = opendir("/dev/input");
-    if (dir == NULL) {
-        return 0;
+static void open_mouse(evmouse_t *mouse, unsigned int number) {
+    if (mouse->nfds == EVMOUSE_MAX_FDS) return;
+    for (int i = 0; i < mouse->nfds; i++) {
+        if (mouse->fds[i].event_number == number) return;
     }
-    struct dirent *ent;
-    char dev_path[32] = "/dev/input/";
-    int nfds = 0;
-    while (nfds < EVMOUSE_MAX_FDS && (ent = readdir(dir))) {
-        if (strncmp(ent->d_name, "event", 5) != 0) {
-            continue;
-        }
-        strncpy(&dev_path[11], ent->d_name, 20);
-        dev_path[31] = '\0';
-        int fd = open(dev_path, O_RDONLY);
-        if (fd < 0) {
-            // Silently ignore "No such device or address"
-            if (errno != ENXIO) {
-                commons_log_warn("EvMouse", "Failed to open %s: %d (%s)", dev_path, errno, strerror(errno));
-            }
-            continue;
-        }
-        mouse_info_t mouse_info;
-        if (is_mouse(fd, &mouse_info) && (!filter || filter(&mouse_info, &fds[nfds].grab))) {
-            commons_log_debug("EvMouse", "Opened mouse device: %s", dev_path);
-            fds[nfds].fd = fd;
-            if (fds[nfds].grab) {
-                if (ioctl(fd, EVIOCGRAB, 1) < 0) {
-                    commons_log_warn("EvMouse", "Failed to grab %s: %d (%s)", dev_path, errno, strerror(errno));
-                    fds[nfds].grab = SDL_FALSE;
-                }
-            }
-            nfds++;
-            continue;
-        }
+
+    char path[32];
+    snprintf(path, sizeof(path), "/dev/input/event%u", number);
+    int fd = open(path, O_RDONLY | O_NONBLOCK);
+    if (fd < 0) return;
+    if (fd >= FD_SETSIZE || !is_mouse(fd)) {
         close(fd);
+        return;
     }
-    closedir(dir);
-    return nfds;
+    dev_fd_t device = {.fd = fd, .event_number = number};
+    if (mouse->requested_grab) {
+        if (ioctl(fd, EVIOCGRAB, 1) == 0) device.grab = SDL_TRUE;
+        else commons_log_warn("EvMouse", "Failed to grab %s: %s", path, strerror(errno));
+    }
+    mouse->fds[mouse->nfds++] = device;
 }
 
-static SDL_bool is_mouse(int fd, mouse_info_t *info) {
-    if (ioctl(fd, EVIOCGID, &info->id) < 0) {
-        return SDL_FALSE;
-    }
+static SDL_bool event_number(const char *name, unsigned int *number) {
+    char extra;
+    return sscanf(name, "event%u%c", number, &extra) == 1;
+}
 
-    uint8_t keycaps[(KEY_MAX / 8) + 1];
-    uint8_t relcaps[(REL_MAX / 8) + 1];
+static void discover_from_directory(evmouse_t *mouse) {
+    DIR *dir = opendir("/dev/input");
+    if (dir == NULL) return;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        unsigned int number;
+        if (event_number(entry->d_name, &number)) open_mouse(mouse, number);
+    }
+    closedir(dir);
+}
+
+static SDL_bool discover_mice(evmouse_t *mouse) {
+    /* webOS pre-creates evdev nodes. Opening every slot, even with O_NONBLOCK,
+     * can stall the input thread for hundreds of milliseconds. */
+    FILE *inventory = fopen("/proc/bus/input/devices", "r");
+    if (inventory == NULL) return SDL_FALSE;
+    char line[1024];
+    unsigned int number = 0;
+    SDL_bool has_event = SDL_FALSE, relative_xy = SDL_FALSE;
+    while (fgets(line, sizeof(line), inventory)) {
+        if (line[0] == '\n') {
+            if (has_event && relative_xy) open_mouse(mouse, number);
+            has_event = relative_xy = SDL_FALSE;
+        } else if (strncmp(line, "H: Handlers=", 12) == 0) {
+            char *save;
+            for (char *token = strtok_r(line + 12, " \t\r\n", &save); token;
+                 token = strtok_r(NULL, " \t\r\n", &save)) {
+                if (event_number(token, &number)) {
+                    has_event = SDL_TRUE;
+                    break;
+                }
+            }
+        } else if (strncmp(line, "B: REL=", 7) == 0) {
+            const char *last = strrchr(line + 7, ' ');
+            unsigned long bits = strtoul(last ? last + 1 : line + 7, NULL, 16);
+            relative_xy = (bits & 3) == 3; /* REL_X and REL_Y */
+        }
+    }
+    if (has_event && relative_xy) open_mouse(mouse, number);
+    fclose(inventory);
+    return SDL_TRUE;
+}
+
+static SDL_bool is_mouse(int fd) {
+    uint8_t keycaps[(KEY_MAX / 8) + 1] = {0};
+    uint8_t relcaps[(REL_MAX / 8) + 1] = {0};
 
     if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keycaps)), keycaps) < 0) {
         return SDL_FALSE;
@@ -249,12 +293,6 @@ static SDL_bool is_mouse(int fd, mouse_info_t *info) {
     }
 
     return SDL_FALSE;
-}
-
-static SDL_bool mouse_filter_any(const mouse_info_t *info, SDL_bool *grab) {
-    (void) info;
-    *grab = SDL_FALSE;
-    return SDL_TRUE;
 }
 
 static inline SDL_bool has_bit(const uint8_t *bits, uint32_t bit) {

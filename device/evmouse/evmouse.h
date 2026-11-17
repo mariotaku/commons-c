@@ -19,6 +19,7 @@ typedef union evmouse_event_t {
 
 typedef void (*evmouse_listener_t)(const evmouse_event_t *event, void *userdata);
 
+/* With a live kernel input inventory, the listener can start before a mouse connects. */
 evmouse_t *evmouse_open_default();
 
 void evmouse_close(evmouse_t *mouse);
