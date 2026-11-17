@@ -1,9 +1,4 @@
-/* Pull in the full translation unit so the test can construct an evmouse_t
- * directly without a /dev/input device — the public evmouse_open_default()
- * returns NULL when no mouse is present (typical CI environment). The test
- * exercises the listen/interrupt state machine, which does not depend on any
- * fds: with nfds=0 the listen loop's select() just times out on its 1ms
- * timeout, giving the loop a chance to observe the listening flag. */
+/* Construct an empty backend to isolate the listen/interrupt state machine. */
 #include "evmouse.c"
 
 #include <assert.h>
